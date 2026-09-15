@@ -113,7 +113,8 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
   - 期間
   - 必要最小限のイベント情報
 - Music
-  - 端末上でオフラインに取得できる範囲のみ
+  - 端末上の情報を優先する
+  - 必要ならMusicKit等のApple platform service利用を許容する
 - Device state
   - 時刻
   - 曜日
@@ -144,7 +145,7 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
 
 > この生き物は、あなたの生活の断片を見ます。
 >
-> あなたのデータは、このiPhoneから出ません。
+> AIの記憶や推論のために、あなたの生活データを外部AIや開発者サーバーへ送りません。
 
 その後、必要になった感覚ごとに権限を要求する。
 
@@ -267,12 +268,13 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
 
 実行後は、本当に何も知らない個体へ戻る。
 
-### アプリ削除
+### アプリ削除 / restore
 
-- アプリ削除 = 個体の死
-- 再インストール = 新しい個体の誕生
+通常の新規インストールでは新しい個体として始める。
+以前の個体を復元するための独自Keychain識別子やhidden resurrection pathは残さない。
 
-以前の個体を復元するためのKeychain識別子等は残さない。
+一方、iOS標準のbackup / restoreによってアプリデータが正規に復元されることは許容する。
+「アプリ削除 = どのような復旧手段でも永久に死ぬ」という保証はしない。
 
 ## 12. Cognition architecture
 
@@ -326,8 +328,8 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
 ### MUST
 
 - アプリ同梱
-- 初回起動からオフライン
-- 外部ダウンロードなし
+- 初回起動からオフラインで推論可能
+- 外部ダウンロードを必須にしない
 - アプリ更新と同時にモデル更新
 - 小型
 - 日本語で最低限の一言を生成可能
@@ -459,29 +461,36 @@ One-line utterance
 
 開発ログへ実データを不用意に永続保存しない。
 
-## 18. Offline guarantee
+## 18. On-device AI / privacy boundary
 
-このアプリはネットワークなしでコア機能が100%成立する。
+AIの観測・記憶・Attention・Association・言語モデル推論・発話生成は、ネットワークなしで成立する。
 
-- serverなし
+現在のproduct pathでは:
+
+- AI用serverなし
 - accountなし
 - cloud inferenceなし
-- API keyなし
-- analyticsなし
+- AI用API keyなし
 - adsなし
-- telemetryなし
-- crash-reporting SDKなし
-- remote configなし
-- CloudKitなし
-- iCloud memory syncなし
-- model downloadなし
+- 生活データを送るanalytics / telemetryなし
+- 生活データを送るthird-party crash-reportingなし
+- remote configに生活データを使わない
+- app-managed memory syncなし
+- modelはapp bundleに含める
 
-PhotoKitの画像要求では、
-iCloudからの追加ダウンロードを許可しない。
-端末上に存在しないアセットはスキップする。
+ただし、アプリ全体について「端末から一切通信しない」とは保証しない。
 
-人間向け地名へのreverse geocoding等、
-ネットワーク依存の補助処理も原則利用しない。
+次は許容する。
+
+- iOS標準のbackup / restore
+- iCloud-backed PhotoKit等のApple framework
+- MapKit / Apple Maps / geocoding
+- MusicKit等のApple platform service
+- App Store / OSが管理する通常の配布・診断経路
+
+Apple platform serviceを使う場合でも、静かなAI独自のmemory、prompt、utterance history、生活ログ等を追加payloadとして勝手に送らない。
+
+custom backend、third-party SDK、app-managed cloud sync等へユーザー由来データを渡す機能を追加する場合は、送信先・送信項目・目的を明示してproduct / privacy reviewを行う。
 
 ## 19. Distribution / OSS
 
@@ -510,7 +519,7 @@ iCloudからの追加ダウンロードを許可しない。
 
 - Android
 - Web版
-- サーバー
+- AI用サーバー
 - ユーザーアカウント
 - SNS
 - AIチャット
@@ -529,7 +538,7 @@ iCloudからの追加ダウンロードを許可しない。
 MVPが成功と言える条件:
 
 1. iOS 27 / iPhone 16で動く。
-2. ネット接続を切った状態で初回以外も含むコア体験が成立する。
+2. ネット接続を切った状態でもAIのコア体験が成立する。
 3. 許可された複数ソースから生活断片をローカル記憶化できる。
 4. 発話時に3〜7個程度の断片しか意識へ上げない。
 5. 発話は必ず実在断片へtraceできる。
@@ -542,4 +551,4 @@ MVPが成功と言える条件:
 12. 3D個体がホーム中央で生体反射する。
 13. Developer modeでAttention〜モデル出力まで追跡できる。
 14. UIがApple HIGに沿い、anti-slopレビューを通る。
-15. 個人データを外部送信するコードパスが存在しない。
+15. AIの生活データを、開発者サーバー・クラウドAI・用途不明な第三者へ送る未レビューのコードパスが存在しない。
