@@ -10,24 +10,38 @@
 - unit tests
 - integration tests
 - UI tests
-- offline/network guard
+- privacy/network boundary guard
 - privacy purge tests
 - dogma checks
 - model fixture checks
 
-## Offline gate
+## Privacy / network gate
 
-最低限、CIで以下を検知する。
+CIの目的は「ネットワークAPIを1つでも使ったら失敗」にすることではない。
+**未レビューの外部送信経路を増やさないこと**を目的にする。
 
-- new URLSession usage
-- Network.framework imports
-- CloudKit imports
-- analytics/crash SDK
+最低限、CIで以下を検知し、review対象にする。
+
+- new `URLSession` usage
+- `Network.framework` imports
+- developer-controlled endpoint strings
+- analytics / telemetry / ad SDK
+- cloud AI SDK
 - remote model URL
 - remote WebView
-- unexpected telemetry package
+- app-managed sync
 
 allowlist方式を優先する。
+allowlist entryには最低限、destination / purpose / transmitted fieldsを記録する。
+
+以下は、それだけを理由に失敗させない。
+
+- MapKit / Apple Maps / geocoding
+- PhotoKitのiCloud-backed asset retrieval
+- MusicKit等のApple platform service
+- OS-managed backup / restore
+
+ただし、Apple framework利用でも、静かなAI独自のmemory / prompt / utterance history等をcustom payloadとして送る処理はreview対象とする。
 
 ## Cognition gate
 
