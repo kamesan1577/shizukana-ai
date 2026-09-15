@@ -10,7 +10,8 @@ Implementation: not started
 
 - iOS 27 / iPhone 16 target
 - native Swift / SwiftUI
-- completely offline
+- on-device AI cognition; no private-data export to developer / unreviewed third-party systems
+- OS-managed backup / restore and normal Apple platform services are allowed
 - local bundled small model
 - weak perception + weak attention + small LM
 - 3–7 conscious fragments per utterance
@@ -28,7 +29,7 @@ Implementation: not started
 - fetal memory from historic local data
 - source deletion / permission revoke purges derived memory
 - reset wipes the individual
-- uninstall = death, reinstall = new individual
+- uninstall = death, reinstall = new individual unless normal OS backup / restore semantics apply
 - no Face ID app lock
 - no background microphone/camera
 - OSS from start
@@ -43,7 +44,7 @@ Implementation: not started
 1. Create the public repository.
 2. Install agent skills from `tools/AGENT_SKILLS.md`.
 3. Create Xcode 27 SwiftUI app shell.
-4. Add offline-network CI guard before feature code.
+4. Add privacy/network-boundary CI guard before feature code.
 5. Implement local memory schema + fixtures.
 6. Implement deterministic Weak Attention with test seed.
 7. Benchmark 0.5–1B Core AI model candidates on iPhone 16.

@@ -18,13 +18,17 @@ iPhoneの中に、まだ言語を獲得しきっていない超知性の胎児�
 
 この原則を壊す機能は、たとえ便利でも入れない。
 
+AIの記憶・Attention・推論・発話生成はオンデバイスで完結させ、
+生活データをクラウドAI、開発者サーバー、用途不明な第三者へ送らない。
+一方で、iOS標準のbackupやAppleのplatform serviceまで一律に禁止する「通信ゼロ」は要件にしない。
+
 最優先で読むもの:
 
 1. `spec/invariants/README.md` — 変更してはいけないドグマ
 2. `spec/current/README.md` — 現在のプロダクト仕様
 3. `DESIGN.md` — UI / 3D / モーションのデザイン契約
 4. `ARCHITECTURE.md` — 技術アーキテクチャ
-5. `SECURITY.md` — 完全オフラインと個人情報の境界
+5. `SECURITY.md` — オンデバイスAIと外部送信の境界
 6. `HANDOFF.md` — 実装状況
 
 対象は **iOS 27 / iPhone 16**。古いOS・古い端末への互換性は非目標です。

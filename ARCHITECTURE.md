@@ -18,7 +18,8 @@
 - BackgroundTasks
 - RealityKit
 - HealthKit (optional / policy-isolated)
-- MusicKit (offline-safe subset only)
+- MusicKit
+- MapKit (optional)
 
 ## 2. High-level pipeline
 
@@ -45,6 +46,9 @@ Utterance record
       ↓
 Local notification / specimen box
 ```
+
+このcognition pipelineはオンデバイスで完結させる。
+Apple platform service等の補助通信を使う場合も、生活データやmodel contextを独自backendへ送る構造にはしない。
 
 ## 3. Modules
 
@@ -130,6 +134,7 @@ provenance
 ```
 
 元写真・元Healthデータ等を不必要に複製しない。
+必要なlocal cache / derived copyを持つこと自体は許容する。
 
 ## 6. Weak Attention
 
@@ -219,12 +224,12 @@ Visionのimage feature print等を使い、
 - coarse location
 - PHAsset identifier
 
-PhotoKit要求はnetwork accessを無効にし、
-iCloud上にしかない画像はスキップする。
+PhotoKitがiCloud-backed assetをOS管理で取得することは許容する。
+静かなAI自身が写真・feature・model contextを独自endpointへuploadすることは禁止する。
 
 ## 10. Location
 
-位置は人間向け住所へ過剰変換しない。
+位置はAI内部では人間向け住所へ過剰変換しない。
 
 - raw location → coarse cluster
 - visit / region / movement event
@@ -233,7 +238,10 @@ iCloud上にしかない画像はスキップする。
 
 を主に扱う。
 
-reverse geocoding等のネットワーク依存処理は使わない。
+MapKit / Apple Maps / geocodingは、UIや補助機能として必要なら利用してよい。
+利用すること自体をprivacy violationとは扱わない。
+
+AIの生活履歴やmodel contextをcustom requestへ載せない。
 
 ## 11. Background execution
 
@@ -291,9 +299,44 @@ RealityKitを第一候補にする。
 - vector/scalarはlocal blob/dataで保持
 - 必要ならAccelerateで類似計算
 
-外部DBサーバーは禁止。
+AIのMemory Storeを外部DBサーバーへ置かない。
 
-## 15. Deterministic developer mode
+OS-managed backup / restoreは許容する。
+CloudKit等によるapp-managed memory syncは現在の要件には含めないが、永久禁止のarchitecture constraintにはしない。
+追加する場合は `SECURITY.md` に従って明示的にレビューする。
+
+## 15. Network / privacy boundary
+
+ネットワークAPIの存在そのものを禁止しない。
+
+### Allowed without product-dogma change
+
+- OS-managed backup / restore
+- iCloud-backed Apple framework access
+- MapKit / Apple Maps / geocoding
+- MusicKit等のApple platform service
+- App Store / OSが管理する通常の配布・診断経路
+
+### Must stay local
+
+- memory retrieval
+- attention
+- association
+- model input
+- model inference
+- utterance generation
+
+### Review required
+
+次を追加する場合は、送信先・送信項目・目的を `SECURITY.md` と同一PRで明文化する。
+
+- custom `URLSession` / `Network.framework` endpoint
+- third-party SDK
+- app-managed cloud sync
+- remote WebViewへユーザー由来データを渡す処理
+- developer-controlled backend
+
+## 16. Deterministic developer mode
 
 本番ではnoiseを使うが、
 テストではseed固定可能にする。
@@ -308,7 +351,7 @@ RealityKitを第一候補にする。
 
 モデル生成自体の非決定性は別管理。
 
-## 16. HealthKit caveat
+## 17. HealthKit caveat
 
 HealthKit由来データはAppleの利用ポリシー上、
 health / fitness目的との整合が問題になり得る。

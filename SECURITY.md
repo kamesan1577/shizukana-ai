@@ -3,55 +3,101 @@
 ## Principle
 
 このアプリは大量の個人情報を読む。
-したがって「外へ送らない」は機能ではなく前提条件。
+したがって、**AIが観測した生活データを、アプリが勝手に外部へ持ち出さない**ことを前提条件とする。
 
-## Network: forbidden by default
+ただし、この原則は「端末から1bitも通信してはいけない」という意味ではない。
+iOS標準のバックアップや、AppleのOS / platform serviceまで一律に禁止することは目的にしない。
 
-production codeでは原則禁止:
+守るべき境界は、主に次の2つ。
 
-- URLSessionを使った外部通信
-- Network.frameworkによる外部接続
-- WebSocket
-- remote WebView
-- analytics SDK
-- crash reporting SDK
-- remote config
-- cloud AI SDK
-- ad SDK
-- tracking SDK
+1. AIの観測・記憶・推論のための個人データを、開発者サーバー、クラウドAI、広告・分析基盤、用途不明な第三者へ送らない。
+2. アプリが意図的に個人データをオンラインサービスへ渡す機能を追加する場合は、送信先・送信データ・目的を明示してレビューする。
 
-CIにnetwork guardを置き、
-上記導入を検知する。
+## On-device AI boundary
 
-例外を作る場合はドグマ変更級のレビューを要求する。
+production pathでは、以下を端末内で完結させる。
 
-## Apple framework implicit network
+- Memory Store
+- Weak Attention
+- Association
+- model input construction
+- language model inference
+- utterance generation
+- notification scheduling
 
-完全オフライン保証のため、
-OS frameworkが裏でネットワーク取得し得る箇所にも注意する。
+禁止:
+
+- cloud AIへ生活データやmodel inputを送る
+- 開発者が管理するサーバーへ生活データを送る
+- 広告SDKへ個人データを渡す
+- analytics / telemetryへ生活データを渡す
+- remote configのために個人データや識別子を送る
+- ユーザーの記憶・写真特徴・位置履歴・Health情報等を用途不明な第三者APIへ送る
+
+## Network policy
+
+ネットワークアクセスそのものは全面禁止しない。
+
+### Allowed by default
+
+以下は、それだけを理由にドグマ違反とはしない。
+
+- iOSが管理するbackup / restore
+- ユーザーが有効にしているiCloud-backed system dataへのApple framework経由のアクセス
+- MapKit / Apple Maps / geocoding等のApple platform service
+- MusicKit等のApple platform service
+- App Store / OSが管理する通常の配布・更新・診断経路
+
+ただし、Apple frameworkを使う場合でも、静かなAI独自の記憶、prompt、発話履歴、生活ログ等を追加payloadとして勝手に送ってはいけない。
+
+### Review required
+
+以下を追加する変更は、`SECURITY.md` と仕様を同一PRで更新し、product-level reviewを行う。
+
+- `URLSession` / `Network.framework` 等で独自endpointへ通信する
+- third-party SDKを追加する
+- app-managed cloud syncを追加する
+- remote WebViewへユーザー由来データを渡す
+- custom backendへ識別子や利用状況を送る
+
+レビューでは最低限、次を明文化する。
+
+- destination
+- data fields
+- purpose
+- retention
+- whether the feature works without the transfer
+- user-facing disclosure / control
+
+## Apple framework network use
 
 ### Photos
 
-PhotoKitでiCloud downloadを許可しない。
+PhotoKitが、ユーザーのiCloud PhotosからOS管理でassetを取得することは許容する。
 
-- `isNetworkAccessAllowed = false`
-
-端末上にないassetはスキップする。
+静かなAIが別サーバーへ写真や画像特徴をuploadすることは禁止する。
 
 ### Music
 
-オンラインcatalog検索はコア機能に使わない。
-端末上にダウンロード済み、またはoffline動作が確認できる範囲だけ利用する。
+MusicKitのApple service利用自体は全面禁止しない。
+
+ただし、静かなAIの記憶や他sense由来の個人データを検索query等へ混ぜない。
 
 ### Maps / geocoding
 
-オンラインmap tileやreverse geocodingへ依存しない。
+MapKit、Apple Maps、geocodingを必要に応じて利用してよい。
 
-## Data copies
+地図を使うこと自体をprivacy violationとは扱わない。
+一方で、静かなAI独自の生活履歴、記憶、model context等をcustom requestへ載せない。
 
-元データは可能な限り複製しない。
+## Data minimization
 
-保存は、
+「元データを絶対に複製しない」ことは目的にしない。
+
+必要な機能、性能、復旧性のために合理的なlocal copyを持ってよい。
+ただし、不要な生データの複製は避ける。
+
+保存は可能な範囲で、
 
 - source ID
 - feature
@@ -80,14 +126,20 @@ OSのData Protectionを使う。
 
 ## Backup / sync
 
-静かなAIの記憶DB・derived features・developer tracesは、
-クラウド同期の対象にしない。
+### OS-managed backup
 
-バックアップ除外を明示する。
+iOS標準のbackup / restoreは許容する。
+静かなAIのDBやderived dataを、セキュリティ上の理由だけで強制的にbackup対象外へする必要はない。
+
+### App-managed sync
+
+CloudKit等を使った「静かなAI自身の記憶同期」は現在の製品要件には含めない。
+ただし、将来追加すること自体を永久禁止するドグマにはしない。
+追加する場合は、明示的なproduct / privacy reviewとユーザー向け説明を必須とする。
 
 ## Logs
 
-release buildで個人情報をConsoleへ出さない。
+release buildで個人情報をConsoleや外部ログ基盤へ出さない。
 
 禁止例:
 
@@ -118,6 +170,26 @@ export機能は初期仕様に入れない。
 ### App uninstall
 
 以前の個体へ復帰するidentifierをKeychain等へ残さない。
+
+OS-managed backup / restoreのライフサイクルはiOSの管理に従う。
+アプリ独自の隠し復活経路は作らない。
+
+## CI / review guard
+
+CIは「ネットワークAPIが存在するだけで失敗」にはしない。
+代わりに、app-controlled network pathをinventoryし、未レビューの外部送信経路を検出する。
+
+最低限、次を検知・レビュー対象にする。
+
+- new `URLSession` usage
+- `Network.framework`
+- third-party analytics / crash / ad SDK
+- cloud AI SDK
+- remote model URL
+- remote WebView
+- app-managed sync
+
+Apple frameworkの通常利用やOS-managed backupは、自動的な禁止対象にしない。
 
 ## OSS
 
