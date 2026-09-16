@@ -1,6 +1,6 @@
 ---
 name: quiet-ai-data-safety
-description: Mandatory safety guardrail when changing any local data source, persistence, permission, background processing, model input, diagnostics, or distribution behavior.
+description: Mandatory safety guardrail when changing any local data source, persistence, permission, background processing, model input, diagnostics, networking, or distribution behavior.
 ---
 
 # Quiet AI Data Safety
@@ -9,12 +9,9 @@ Read `SECURITY.md` before making changes.
 
 ## Invariants
 
-- No user data leaves the device.
+- AI memory, attention, association, model input, inference, and utterance generation stay on-device.
+- Do not send user-derived private data to developer-controlled servers, cloud AI, analytics, ads, or unreviewed third parties.
 - No cloud inference.
-- No external API.
-- No analytics or telemetry.
-- No remote model download.
-- No iCloud memory sync.
 - No background mic.
 - No background camera.
 - Email and message bodies are out of scope.
@@ -22,19 +19,39 @@ Read `SECURITY.md` before making changes.
 - Revoked permissions remove corresponding derived memory.
 - Deleted source data removes corresponding derived memory.
 - Full reset removes the whole individual.
-- Uninstall must not leave a resurrection identifier.
+- Uninstall must not leave a hidden resurrection identifier.
 
-## Network-sensitive Apple APIs
+Network access itself is not forbidden.
+OS-managed backup / restore and normal Apple platform services are not privacy violations solely because they may use the network.
 
-Explicitly prevent implicit downloads where possible.
+## Apple platform services
 
 Photos:
-- network access must remain disabled for asset requests.
+- iCloud-backed PhotoKit asset retrieval is allowed when performed through the user's granted system access.
+- do not upload photos, image features, or AI context to a custom endpoint.
 
 Music:
-- only use data proven available offline.
+- MusicKit / Apple service use is allowed when useful.
+- do not mix unrelated private memory into search requests.
 
 Maps/geocoding:
-- do not introduce remote tile or reverse-geocode dependencies.
+- MapKit / Apple Maps / geocoding may be used.
+- do not attach the creature's memory, prompt, utterance history, or unrelated life-log context to custom network requests.
 
-Any exception requires a product-level decision because it changes the complete-offline promise.
+Backup:
+- OS-managed backup / restore is allowed.
+- do not force app data out of backup merely to preserve a 'zero network' claim.
+
+## Review-required network paths
+
+A product-level privacy review is required before adding:
+
+- custom `URLSession` / `Network.framework` endpoints;
+- developer-controlled backends;
+- third-party SDKs that receive identifiers or user data;
+- app-managed cloud memory sync;
+- remote WebViews that receive user-derived data.
+
+For each reviewed path, document destination, fields, purpose, retention, user control, and whether the feature can work without the transfer.
+
+The goal is not complete network isolation. The goal is preventing unexplained export of the user's life data.
