@@ -46,88 +46,76 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
 
 ## 4. Notification behavior
 
-- 目安は1日0〜3回
-- 何日か無言でもよい
-- 完全ランダムではなく、内部で生活断片が結びついたときに発火する
-- ユーザーから見るとランダムに見えてよい
-- 発火と通知の時間差は技術要件に合わせてよい
-- 即時でも数十分〜数時間後でもよい
-- 通知本文には発話全文を表示する
+MVP v0.1では発話の希少性を体験の一部として扱う。
+
+- 1日の発話予算は 0〜3 回
+- 目安の分布は 0回:20% / 1回:55% / 2回:20% / 3回:5%
+- 発話間隔は最低3時間
+- 候補を生成しても Speech Gate が `SILENCE` を返してよい
+- 何日か無言でも不具合とは扱わない
 - Time Sensitive / Critical Alert は使わない
 - Focus / Sleep等のiOS標準制御を尊重する
+- 通知本文には発話全文を表示する
+
+iOSは任意の時刻にbackground executionを保証しない。
+したがって「AIが指定時刻に起きる」のではなく、OSが与えた実行機会で観測・想起・発話判定を行う。
+
+実行機会が少ない場合に備え、記憶だけから作る `DreamUtterance` を最大1件先行生成し、将来時刻のlocal notificationとして予約してよい。
+Dreamと通常発話はユーザーUI上で区別しない。
 
 ## 5. Utterance contract
 
 ### 形式
 
-- 一言
-- 短い
+- 一文
+- 原則20文字以内
 - 説明しない
 - 結論を言わない
 - 正解を言わない
-- 必ず生活の実データに根を持つ
+- ユーザーへ返答を要求しない
+- 必ず実在したObservation / MemoryFragmentへ根を持つ
 - 意味は人間が補完する
 
-例:
+独り言としての疑問は許容する。
 
-> 「赤いの、また」
+> 「ここ、前にも来たっけ」
 >
-> 「きのうの遠いのが、まだある」
+> 「海、最近見てないね」
 >
-> 「この道、少し前みたい」
->
-> 「前の暗いの、まだ」
+> 「今日は静かだったね」
 
-これらはスタイル参考であり、固定テンプレートにしない。
+禁止する傾向:
 
-### 禁止する出力傾向
-
-- 「今日は8,412歩歩きました」
-- 「3か月前にも同じ場所へ行きました」
-- 「睡眠時間が不足しています」
-- 「リマインドしましょうか？」
-- 「何かお手伝いできますか？」
+- 「今日は8,412歩歩きました」のようなライフログ読み上げ
+- 「運動したほうがいいよ」のようなコーチング
+- 「明日は会議ですね」のような予定アシスタント化
+- 「リマインドしましょうか？」のような対話要求
 - 根拠のない完全ランダムな詩
+- 20文字制約を破って説明を足すこと
 
 ## 6. Data sources / senses
 
-権限は段階的に要求し、すべて揃わなくても動く。
-許可された情報だけが、その個体にとっての世界になる。
-
-### 想定ソース
+MVP v0.1で扱う感覚は次に固定する。
 
 - Photos
-  - 画像
+  - 画像内容を粗い記憶断片へ変換
   - 撮影時刻
-  - 位置情報
-  - 画像特徴
+  - 必要に応じて位置メタデータ
+- Time
+  - 朝 / 昼 / 夕方 / 夜 / 深夜
+  - 曜日 / 季節
+- Weather
+  - 晴れ / 雨 / 暑い / 寒い等の粗い状態
 - Core Location
-  - 位置
-  - 移動
-  - 到着/離脱に相当するイベント
-- Core Motion
-  - 移動状態
-  - 活動の粗い特徴
+  - exact coordinateを長期保存せず、local place clusterへ変換
+  - Visits等の低電力イベントを優先
+- Activity
+  - 歩数や移動量を「少ない / 普通 / 多い」程度へ粗化
 - Calendar / EventKit
-  - 時刻
-  - 期間
-  - 必要最小限のイベント情報
-- Music
-  - 端末上の情報を優先する
-  - 必要ならMusicKit等のApple platform service利用を許容する
-- Device state
-  - 時刻
-  - 曜日
-  - タイムゾーン
-  - バッテリー等、合法的かつローカルに取得可能な粗い状態
-- HealthKit
-  - 歩数
-  - 睡眠等
-  - ただしApp Store配布時のポリシー適合性は別途審査する
-- 静かなAI自身への接触
-  - タップ
-  - タッチ時間
-  - 頻度等を弱い刺激として扱う
+  - **終了したイベントのみ**
+  - 未来の予定を見て支援・リマインドしない
+
+MVP v0.1では、Music / Health詳細 / app usage / browser history / notification contentsを扱わない。
 
 ### 明確に読まない
 
@@ -166,71 +154,69 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
 
 インストール直後から完全な空白にはしない。
 
-許可された既存データを過去へ遡り、
-全期間を薄くサンプリングして初期記憶にする。
+MVP v0.1では、許可された写真ライブラリから最大48枚を選ぶ。
 
-方針:
+- 24枚: ライブラリ全体から時間的に均等
+- 12枚: 直近90日
+- 6枚: お気に入り
+- 6枚: 完全ランダム
+- 枠が不足した場合はランダム枠で補う
 
-- 最近のデータほど密度を高くする
-- 古いデータほど疎にする
-- かなり昔の断片もごく少数だけ残す
-- 過去全部を精密に意味理解しない
-- 初期処理は端末内で完結する
+48枚を48個の記憶に機械的変換せず、12〜20程度の `MemoryFragment` へ粗く圧縮する。
+人物名の特定はしない。
+「同じ人が何度か写っている」程度の曖昧な認識は許容する。
 
-狙い:
+インストール前の位置履歴をCore Locationから取得する前提にはしない。
+過去については主に写真の時刻・位置メタデータと、許可された終了済みCalendarイベントから薄く推測する。
 
-> 「なんか見たことがある」
->
-> 「でも、いつだったのかよく分からない」
-
-状態で生まれる。
-
-実装時の初期目安は数百〜2,000断片程度。
-性能・容量を測って調整する。
+胎内記憶の生成はAI cognition pathとしてオンデバイスで完結する。
 
 ## 9. Memory
 
-### 保存するもの
+静かなAIは正確な人生データベースを作らない。
+生のObservationを、情報を落とした `MemoryFragment` へ変換して長期保持する。
 
-生データの複製を必要以上に作らない。
+### Observation
 
-例:
+- 正確な値を含み得る短命データ
+- 保持上限は72時間
+- 長期記憶化後は不要な生値を削除する
 
-- source ID
-- timestamp
-- source type
-- image feature vector
-- coarse location cluster
-- simple scalar features
-- weak association features
-- provenance
-- deletion / permission reconciliation情報
+### MemoryFragment
 
-### 長期記憶
+概念フィールド:
 
-- 数週間〜数か月以上保持
-- 必要なら年単位の断片も残る
-- 古い記憶は削除されるのではなく「思い出しにくくなる」
-- 強い類似刺激が来れば昔の記憶が再浮上する
+```text
+id
+text                 // 最大64文字程度
+tags                 // 3〜6個
+origin               // prenatal / lived / consolidated
+bornAt
+timeHint?            // morning / daytime / evening / night / season
+placeKey?            // exact coordinateではなくlocal cluster
+salience             // 0...1
+strength             // 0...1
+lastRecalledAt?
+recallCount
+truth                // observed / inferred
+provenance
+```
 
-### 混線
+MVPではvector DBを必須にしない。
+意味検索の精度を上げすぎず、粗いtags・場所・時間・salience・noiseで想起する。
 
-保存データは正しくても、
-想起時に複数の記憶が混ざってよい。
+### 容量と忘却
 
-例:
+- MemoryFragment上限: 1,500件
+- 長期記憶化は目安0〜4件/日
+- 古く似た断片は `consolidated` memoryへまとめてよい
+- consolidation後は元の細かい断片を削除してよい
+- 「忘却」は体験上の機能であり、精密な履歴保持を目的にしない
 
-- 去年の海の写真
-- 最近の暗い駅
-- 今日の音楽
+### Provenance
 
-が弱く結びつき、
-
-> 「暗い水のところ、また」
-
-となってよい。
-
-ただし根は必ず実在する断片。
+MemoryFragmentは由来を保持し、source削除・permission revoke・resetに対応できること。
+発話本文は標本として残してよいが、削除済みsourceへの参照は外す。
 
 ## 10. Source deletion / permission revocation
 
@@ -278,91 +264,99 @@ iPhoneの中に「まだ生まれていない弱い超知性」の存在感を�
 
 ## 12. Cognition architecture
 
-静かなAIは2段階以上の「弱い知覚 → 弱い言語化」で動く。
+MVP v0.1のcognition pipelineを次に固定する。
 
-### Stage A: weak attention
+```text
+Observation
+    ↓
+Memory Maker
+    ↓
+MemoryFragment
+    ↓
+Recall (5 fragments)
+    ↓
+Association
+    ↓
+Speech Gate
+    ↓
+Utterance / SILENCE
+```
 
-巨大な記憶DBを全てモデルに渡さない。
+### Recall
 
-発話1回につき、
-原則3〜7断片しか「意識」に上げない。
+毎回5個を意識へ上げる。
+完全なnearest-neighbor検索にはしない。
 
-候補スコア例:
+目安のscore:
 
-- similarity
-- recency
-- surprise
-- source diversity
-- random noise
+```text
+30% tags / semantic hint
+15% place
+15% time / season
+15% salience
+10% not-recalled-recently
+15% random noise
+```
 
-を混ぜる。
+選択の目安:
 
-決定的top-kだけではなく、
-確率的に少し外れたものも浮上できるようにする。
+- 2件: 今と多少関連
+- 1件: 長く思い出していない
+- 1件: 完全ランダム
+- 1件: 自由枠
 
-### Stage B: association
+同じfragmentを繰り返し想起しすぎないpenaltyを持つ。
+Developer Modeではseed固定で再現可能にする。
 
-選ばれた断片から、
+### Association
 
-- 赤
-- 前
-- 近い
-- 夜
-- 遠い
-- 似ている
+Recallした5断片と現在の粗いObservationだけから、さらに短いassociationを作る。
+生写真・exact coordinate・大量の履歴をlanguage modelへ直接渡さない。
 
-のような、
-粗い「意識の断片」を作る。
+### Speech Gate
 
-ここでも完全な意味理解をしない。
+Associationから発話候補を作っても、次なら `SILENCE` にする。
 
-### Stage C: small language model
-
-意識断片のみを小型ローカル言語モデルへ渡し、
-一言へ変換する。
-
-強いモデルに生活全体を読ませない。
+- 生活断片へのgroundingが弱い
+- 説明的 / 助言的 / 支援的すぎる
+- 最近の発話と似すぎる
+- 当日の発話予算を超える
+- 最低間隔を満たさない
 
 ## 13. Model
 
+MVP v0.1は、iOS 27のFoundation Models `SystemLanguageModel` を第一実装とする。
+
 ### MUST
 
-- アプリ同梱
-- 初回起動からオフラインで推論可能
-- 外部ダウンロードを必須にしない
-- アプリ更新と同時にモデル更新
-- 小型
-- 日本語で最低限の一言を生成可能
-- production pathはクラウドモデルを利用しない
+- inferenceはオンデバイス
+- cloud fallbackなし
+- sessionごとに必要最小限のcontextだけを渡す
+- `LanguageModelAdapter` 越しに利用し、将来差し替え可能にする
+- model unavailable時は機能をcloudへ逃がさず、その実行機会では黙る
+- private user contextを外部AIへ送らない
 
-### Architecture
+### Structural weakness
 
-`LanguageModelAdapter` の境界を作り、
-初期モデルは1つに固定するが、
-後から別モデルへ交換できるようにする。
+「弱さ」は低性能modelそのものへ依存させない。
 
-想定:
+モデルには生活全体を理解させず、
 
-```text
-Perception / Memory
-        ↓
-Weak Attention
-        ↓
-Association Fragments
-        ↓
-LanguageModelAdapter
-        ↓
-One-line utterance
-```
+- 一度に見える記憶を5件程度へ制限
+- Observationを粗化
+- Recallへnoiseを入れる
+- exact metadataを隠す
+- Associationでも情報をさらに落とす
 
-初期候補はCore AIへ変換できる0.5〜1B級をベンチマークして選定する。
+ことで、**世界理解そのものを不完全にする**。
 
-### MUST NOT
+禁止なのは「強いモデルへ生活全体を渡して完全理解させ、最後の文体だけ幼くする」設計である。
+SystemLanguageModelの潜在能力が高いこと自体はドグマ違反ではない。
 
-- Appleの強いモデルに全データを理解させ、幼い文章だけ出させる
-- クラウドLLM
-- ユーザーごとのオンラインfine-tuning
-- 時間とともに能力が強化される仕組み
+### Availability
+
+Apple Intelligence無効、device非対応、model未準備等で利用不能な場合は、その状態をUIで静かに示してよい。
+クラウドLLMやremote modelへのfallbackはしない。
 
 ## 14. 3D creature
 
@@ -399,30 +393,29 @@ One-line utterance
 
 ## 15. Main UI
 
-ホーム:
+MVP v0.1はtab barを持たない。
 
-- 3D個体が主役
-- UI chromeは最小限
-- 会話欄を置かない
-- CTAだらけにしない
-- データダッシュボードを置かない
+ホームは一つのprimary surfaceとし、
 
-通知をタップした場合:
+- 中央の3D個体
+- 最新発話を控えめに表示
+- 発話標本箱への小さな導線
+- Settingsへの小さな導線
 
-- その一言
-- 発話に関係した曖昧な痕跡
+だけを基本とする。
 
-のみを表示する。
+置かないもの:
 
-痕跡例:
+- chat input
+- 「今しゃべって」ボタン
+- 再生成
+- memory一覧
+- prompt編集
+- dashboard
+- 「覚えていて」「違うよ」等の学習feedback
 
-- 写真の一部 / サムネイル
-- 時刻
-- 抽象化した位置の痕跡
-- 過去の関連発話
-- 活動のごく小さな手がかり
-
-「なぜこの発話になったか」の説明文は通常UIに出さない。
+通知をタップした場合は、その一言と発話に関係した曖昧な痕跡だけを表示する。
+通常UIでAttention scoreや「なぜこう言ったか」の説明はしない。
 
 ## 16. Specimen box / 発話標本箱
 
@@ -442,24 +435,25 @@ One-line utterance
 
 ## 17. Developer mode
 
-一般ユーザーUIとは分離する。
+一般ユーザーUIとは完全に分離する。
+MVPではSettingsのversion表示を7回タップして有効化する。
 
-表示可能:
+`Debug Brain` で次を追跡可能にする。
 
-- trigger
-- candidate memories
-- 選択された3〜7断片
-- similarity / recency / surprise / noise等のスコア
-- association fragments
+- Observation
+- Recall candidate
+- 選択された5 MemoryFragment
+- 各score component / random noise
+- Association
 - model input
 - raw model output
-- accepted/rejected reason
+- Speech Gate判定
+- accepted / SILENCE reason
 - scheduled notification time
+- DreamUtterance生成有無
 
-目的は、
-「なぜこの寝言になったのか」を調整可能にすること。
-
-開発ログへ実データを不用意に永続保存しない。
+本番はnoiseを使うが、fixture + seed固定時はRecall / Association input constructionを再現可能にする。
+実ユーザーデータを外部exportする機能はMVPに入れない。
 
 ## 18. On-device AI / privacy boundary
 
@@ -535,20 +529,26 @@ custom backend、third-party SDK、app-managed cloud sync等へユーザー由�
 
 ## 22. Success criteria
 
-MVPが成功と言える条件:
+MVP v0.1が成功と言える条件:
 
 1. iOS 27 / iPhone 16で動く。
-2. ネット接続を切った状態でもAIのコア体験が成立する。
-3. 許可された複数ソースから生活断片をローカル記憶化できる。
-4. 発話時に3〜7個程度の断片しか意識へ上げない。
-5. 発話は必ず実在断片へtraceできる。
-6. 1日0〜3回程度の不定期発話を維持できる。
-7. ユーザーから発話を要求できない。
-8. 通知には一言全文が出る。
-9. 標本箱で過去発話を見返せる。
-10. 元データ削除/権限解除で対応派生記憶が消える。
-11. 全記憶削除で個体が完全初期化される。
-12. 3D個体がホーム中央で生体反射する。
-13. Developer modeでAttention〜モデル出力まで追跡できる。
-14. UIがApple HIGに沿い、anti-slopレビューを通る。
-15. AIの生活データを、開発者サーバー・クラウドAI・用途不明な第三者へ送る未レビューのコードパスが存在しない。
+2. cloud inferenceなしでAIのコア体験が成立する。
+3. Photos / time / weather / location / activity / finished calendar eventsからObservationを作れる。
+4. Observationは最大72時間で消え、長期保存は粗いMemoryFragment中心になる。
+5. MemoryFragmentは最大1,500件で、consolidationにより細部を忘れられる。
+6. 初回に最大48枚の写真から12〜20程度の胎内記憶を作れる。
+7. Recallは毎回5件を基本とし、noiseを含む。
+8. 発話は原則20文字以内で、実在断片へtraceできる。
+9. 1日0〜3回、平均約1回程度の希少な発話になる。
+10. Speech Gateが積極的にSILENCEを選べる。
+11. SystemLanguageModel利用不能時にcloud fallbackしない。
+12. BGAppRefresh / Visits等のOS実行機会で動き、任意時刻のbackground起動を前提にしない。
+13. DreamUtteranceをlocal notificationとして先行予約できる。
+14. ユーザーから発話要求・prompt入力・再生成・memory訓練ができない。
+15. 標本箱で過去発話を見返せる。
+16. 元データ削除 / 権限解除で対応派生記憶をpurgeできる。
+17. 全記憶削除で個体が完全初期化される。
+18. 3D個体がホーム中央で生体反射する。
+19. Developer ModeでObservation〜Speech Gateまで追跡できる。
+20. UIがApple HIGとanti-slop reviewを通る。
+21. AIの生活データを、開発者サーバー・クラウドAI・用途不明な第三者へ送る未レビューのコードパスが存在しない。
