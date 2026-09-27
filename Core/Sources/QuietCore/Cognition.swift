@@ -27,7 +27,7 @@ public enum AssociationMaker {
 }
 
 public enum SilenceReason: String, Sendable {
-    case modelUnavailable, noGrounding, modelSilence, tooLong, assistantLike, repetition, budget, interval
+    case modelUnavailable, noGrounding, modelSilence, tooLong, assistantLike, futureState, repetition, budget, interval
 }
 
 public enum GateResult: Sendable {
@@ -37,7 +37,7 @@ public enum GateResult: Sendable {
 
 public enum SpeechGate {
     public static func assess(_ raw: String, association: Association?, recent: [Utterance],
-                              budget: DailyBudget, now: Date) -> GateResult {
+                              budget: DailyBudget, now: Date, dream: Bool = false) -> GateResult {
         guard let association, !association.sourceIDs.isEmpty else { return .silence(.noGrounding) }
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, text != "SILENCE" else { return .silence(.modelSilence) }
@@ -45,6 +45,9 @@ public enum SpeechGate {
         let forbidden = ["してください", "しましょう", "おすすめ", "教えて", "リマインド", "理由", "なぜなら",
                          "明日", "忘れず", "べき", "会議", "予定を", "確認して"]
         guard !forbidden.contains(where: text.contains) else { return .silence(.assistantLike) }
+        if dream && ["今", "今日", "さっき", "これから", "ここにいる"].contains(where: text.contains) {
+            return .silence(.futureState)
+        }
         guard budget.used < budget.limit else { return .silence(.budget) }
         guard !recent.contains(where: { abs(now.timeIntervalSince($0.createdAt)) < 3 * 3600 }) else {
             return .silence(.interval)

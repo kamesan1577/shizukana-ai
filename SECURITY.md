@@ -128,6 +128,7 @@ MapKit、Apple Maps、geocodingを必要に応じて利用してよい。
 
 OSのData Protectionを使う。
 バックグラウンド要件と両立する範囲で強いfile protectionを選ぶ。
+個体のSwiftData storeは初回ロック解除後にbackgroundから利用できる保護レベルのディレクトリへ作る。
 
 個人データをUserDefaultsへ雑に置かない。
 

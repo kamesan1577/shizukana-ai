@@ -11,7 +11,14 @@ import QuietCore
     private nonisolated static let refreshID = "org.kamesan.shizukana-ai.refresh"
 
     init() {
-        let container = try! ModelContainer(for: StoredIndividual.self)
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Individual", isDirectory: true)
+        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+        let configuration = ModelConfiguration("individual", schema: Schema([StoredIndividual.self]),
+            url: directory.appendingPathComponent("individual.store"), allowsSave: true,
+            cloudKitDatabase: .none)
+        let container = try! ModelContainer(for: StoredIndividual.self, configurations: configuration)
         let instance = CreatureRuntime(store: SwiftDataMemoryStore(container: container))
         _runtime = State(initialValue: instance)
         UNUserNotificationCenter.current().delegate = notificationRouter

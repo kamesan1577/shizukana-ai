@@ -67,6 +67,10 @@ import Testing
         recent: [], budget: budget, now: now) else {
         Issue.record("reminders must be silenced"); return
     }
+    guard case .silence(.futureState) = SpeechGate.assess("今日は静かだったね", association: association,
+        recent: [], budget: budget, now: now, dream: true) else {
+        Issue.record("a queued dream cannot claim delivery-time state"); return
+    }
 }
 
 @Test func resetRemovesEntireIndividual() async throws {

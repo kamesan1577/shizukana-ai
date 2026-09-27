@@ -167,7 +167,8 @@ final class CreatureRuntime {
         var recent = state.utterances
         if let pending = state.dream { recent.append(pending.utterance) }
         let result = raw.map { SpeechGate.assess($0, association: association, recent: recent,
-                                                  budget: state.budget!, now: delivery) } ?? .silence(.modelUnavailable)
+                                                  budget: state.budget!, now: delivery,
+                                                  dream: dreamDelivery != nil) } ?? .silence(.modelUnavailable)
         switch result {
         case .silence(let reason):
             record(BrainTrace(timestamp: now, observations: observation.map { [$0] } ?? [], recall: recall,
