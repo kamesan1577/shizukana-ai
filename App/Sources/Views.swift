@@ -131,6 +131,7 @@ struct CreatureView: View {
 
 struct SpecimenView: View {
     let runtime: CreatureRuntime
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             List(runtime.utterances) { utterance in
@@ -147,6 +148,7 @@ struct SpecimenView: View {
             .overlay { if runtime.utterances.isEmpty { ContentUnavailableView("まだ標本はありません", systemImage: "square.stack") } }
             .navigationTitle("標本箱")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("閉じる") { dismiss() } } }
         }
     }
 }
@@ -174,6 +176,7 @@ struct SpecimenDetail: View {
 
 struct SettingsView: View {
     @Bindable var runtime: CreatureRuntime
+    @Environment(\.dismiss) private var dismiss
     @State private var versionTaps = 0
     @State private var confirmErase = false
     @State private var permissionRevision = 0
@@ -228,6 +231,7 @@ struct SettingsView: View {
             }
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("閉じる") { dismiss() } } }
             .alert("この子の記憶をすべて消しますか", isPresented: $confirmErase) {
                 Button("消す", role: .destructive) { Task { await runtime.erase() } }
                 Button("やめる", role: .cancel) {}

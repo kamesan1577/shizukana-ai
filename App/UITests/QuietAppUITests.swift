@@ -15,6 +15,10 @@ final class QuietAppUITests: XCTestCase {
         home.lifetime = .keepAlways
         add(home)
 
+        app.buttons["発話標本箱"].tap()
+        XCTAssertTrue(app.staticTexts["まだ標本はありません"].waitForExistence(timeout: 5))
+        app.buttons["閉じる"].tap()
+
         app.buttons["設定"].tap()
         XCTAssertTrue(app.staticTexts["感覚"].waitForExistence(timeout: 5))
         let settings = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
