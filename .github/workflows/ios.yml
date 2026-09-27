@@ -18,5 +18,9 @@ jobs:
         run: bash scripts/privacy-guard.sh
       - name: Generate project
         run: make project
+      - name: Create iPhone 16 simulator
+        run: |
+          runtime=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; print(next(r["identifier"] for r in json.load(sys.stdin)["runtimes"] if r["name"].startswith("iOS 27") and r["isAvailable"]))')
+          xcrun simctl create Quiet-iPhone-16 com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$runtime"
       - name: Build and test iPhone 16
-        run: xcodebuild -project App/QuietApp.xcodeproj -scheme QuietApp -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
+        run: xcodebuild -project App/QuietApp.xcodeproj -scheme QuietApp -destination 'platform=iOS Simulator,name=Quiet-iPhone-16' CODE_SIGNING_ALLOWED=NO test

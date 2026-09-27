@@ -101,7 +101,9 @@ public struct MemorySnapshot: Codable, Sendable {
     public var utterances: [Utterance] = []
     public var dream: DreamUtterance?
     public var budget: DailyBudget?
+    public var prenatalSelectedIDs: [String] = []
     public var prenatalProcessedIDs: Set<String> = []
+    public var prenatalDraft: [Observation] = []
     public init() {}
 }
 
@@ -130,5 +132,7 @@ public enum MemoryPolicy {
             state.dream = dream.utterance.sourceIDs.isEmpty ? nil : dream
         }
         state.prenatalProcessedIDs = state.prenatalProcessedIDs.filter { !source(SourceRef(.photo, $0)) }
+        state.prenatalSelectedIDs.removeAll { source(SourceRef(.photo, $0)) }
+        state.prenatalDraft.removeAll { source($0.source) }
     }
 }

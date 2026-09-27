@@ -59,13 +59,21 @@ final class CreatureRuntime {
     func bootstrap() async {
         guard let state = try? await store.snapshot() else { return }
         let now = Date()
-        let observations = await photos.bootstrap(at: now, processed: state.prenatalProcessedIDs)
+        let selection = state.prenatalSelectedIDs.isEmpty ? photos.selectAssets(at: now) : state.prenatalSelectedIDs
+        if state.prenatalSelectedIDs.isEmpty {
+            try? await store.update { $0.prenatalSelectedIDs = selection }
+        }
+        let observations = await photos.bootstrap(selection: selection, processed: state.prenatalProcessedIDs)
         guard !observations.isEmpty else { return }
-        // Each batch is committed atomically. Retrying a cancelled batch cannot duplicate memories.
-        let memories = PrenatalSampler.compress(observations, at: now)
+        // Rebuild from the bounded coarse draft so cancellation never duplicates memories.
         try? await store.update { snapshot in
-            snapshot.fragments.append(contentsOf: memories)
+            snapshot.prenatalDraft.append(contentsOf: observations)
+            snapshot.fragments.removeAll { $0.origin == .prenatal }
+            snapshot.fragments.append(contentsOf: PrenatalSampler.compress(snapshot.prenatalDraft, at: now))
             snapshot.prenatalProcessedIDs.formUnion(observations.map { $0.source.id })
+            if snapshot.prenatalProcessedIDs.count >= snapshot.prenatalSelectedIDs.count {
+                snapshot.prenatalDraft.removeAll()
+            }
             MemoryPolicy.maintain(&snapshot, now: now)
         }
     }

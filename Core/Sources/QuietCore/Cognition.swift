@@ -42,7 +42,7 @@ public enum SpeechGate {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, text != "SILENCE" else { return .silence(.modelSilence) }
         guard !text.contains("\n"), text.count <= 20 else { return .silence(.tooLong) }
-        let forbidden = ["してください", "しましょう", "おすすめ", "予定", "教えて", "ですか", "？", "?", "理由", "なぜなら"]
+        let forbidden = ["してください", "しましょう", "おすすめ", "教えて", "リマインド", "理由", "なぜなら"]
         guard !forbidden.contains(where: text.contains) else { return .silence(.assistantLike) }
         guard budget.used < budget.limit else { return .silence(.budget) }
         guard !recent.contains(where: { now.timeIntervalSince($0.createdAt) < 3 * 3600 }) else {

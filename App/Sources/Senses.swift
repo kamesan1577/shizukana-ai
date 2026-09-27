@@ -124,29 +124,31 @@ final class PhotoSense: SenseSource {
         return status == .authorized || status == .limited
     }
     func observe(at date: Date) async -> [Observation] { [] }
-    func bootstrap(at date: Date, processed: Set<String>) async -> [Observation] {
+    func selectAssets(at date: Date) -> [String] {
         guard hasAccess else { return [] }
         let results = PHAsset.fetchAssets(with: .image, options: nil)
         var candidates: [PhotoCandidate] = []
-        var byID: [String: PHAsset] = [:]
         results.enumerateObjects { asset, _, _ in
             guard let createdAt = asset.creationDate else { return }
             candidates.append(PhotoCandidate(id: asset.localIdentifier, createdAt: createdAt,
                                              favorite: asset.isFavorite))
-            byID[asset.localIdentifier] = asset
         }
         var rng = SystemRandomNumberGenerator()
-        let selected = PrenatalSampler.sample(candidates, now: date, random: &rng)
+        return PrenatalSampler.sample(candidates, now: date, random: &rng).map(\.id)
+    }
+    func bootstrap(selection: [String], processed: Set<String>) async -> [Observation] {
+        guard hasAccess else { return [] }
         var observations: [Observation] = []
-        for candidate in selected where !processed.contains(candidate.id) {
+        for id in selection where !processed.contains(id) {
             if Task.isCancelled { break }
-            guard let asset = byID[candidate.id], let data = await imageData(for: asset) else { continue }
+            let results = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil)
+            guard let asset = results.firstObject, let data = await imageData(for: asset) else { continue }
             let request = VNClassifyImageRequest()
             let handler = VNImageRequestHandler(data: data)
             guard (try? handler.perform([request])) != nil else { continue }
             let tags = Array((request.results ?? []).filter { $0.confidence > 0.15 }.prefix(3).map(\.identifier))
-            let coarse = tags.isEmpty ? ["写真", "昔", "景色"] : tags
-            observations.append(Observation(source: SourceRef(.photo, candidate.id), observedAt: candidate.createdAt,
+            let coarse = Array((tags + ["写真", "昔", "景色"]).prefix(3))
+            observations.append(Observation(source: SourceRef(.photo, id), observedAt: asset.creationDate ?? Date(),
                                             text: "昔の写真に\(coarse[0])", tags: coarse))
         }
         return observations
