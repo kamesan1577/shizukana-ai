@@ -144,7 +144,7 @@ final class CreatureRuntime {
             MemoryPolicy.maintain(&state, now: now)
         }
         if backgroundOnly { return }
-        await consider(observation: current, dreamDelivery: nil, now: now)
+        if !isQuiet(at: now) { await consider(observation: current, dreamDelivery: nil, now: now) }
         if allowDream { await scheduleDream(after: now) }
         await refresh()
     }
@@ -204,12 +204,16 @@ final class CreatureRuntime {
     private func currentForTrace(_ observation: SenseObservation?) -> SenseObservation {
         observation ?? SenseObservation(source: SourceRef(.time, "unknown"), observedAt: Date(), text: "", tags: [])
     }
+    private func isQuiet(at date: Date) -> Bool {
+        let hour = Calendar.current.component(.hour, from: date)
+        if quietStart == quietEnd { return false }
+        if quietStart < quietEnd { return hour >= quietStart && hour < quietEnd }
+        return hour >= quietStart || hour < quietEnd
+    }
     private func nextDelivery(after date: Date) -> Date {
         var next = date.addingTimeInterval(4 * 3600)
-        let calendar = Calendar.current
         for _ in 0..<24 {
-            let hour = calendar.component(.hour, from: next)
-            if quietStart <= quietEnd ? (hour < quietStart || hour >= quietEnd) : (hour >= quietEnd && hour < quietStart) {
+            if !isQuiet(at: next) {
                 break
             }
             next = next.addingTimeInterval(3600)

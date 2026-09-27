@@ -4,6 +4,22 @@ import SwiftData
 @testable import QuietApp
 
 final class AppTests: XCTestCase {
+    @MainActor func testQuietHoursSuppressAwakeSpeech() async throws {
+        let store = InMemoryStore()
+        let night = Calendar.current.date(bySettingHour: 1, minute: 0, second: 0, of: Date())!
+        let clock = FixtureClock(date: night)
+        try await store.update { $0.budget = DailyBudget(day: BudgetPolicy.day(for: night), limit: 3) }
+        let runtime = CreatureRuntime(store: store, model: FixedModel(),
+                                      senses: [FixtureSense()], notifications: StubNotifications(),
+                                      clock: { clock.date })
+        runtime.quietStart = 23; runtime.quietEnd = 7
+        await runtime.wake(allowDream: false)
+        let state = try await store.snapshot()
+        XCTAssertTrue(state.utterances.isEmpty)
+        XCTAssertEqual(state.budget?.used, 0)
+        XCTAssertFalse(state.observations.isEmpty)
+    }
+
     @MainActor func testSyntheticDaysRespectZeroThroughThreeBudgets() async throws {
         let store = InMemoryStore()
         let clock = FixtureClock(date: Date(timeIntervalSince1970: 1_767_268_800))
