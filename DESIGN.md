@@ -97,19 +97,26 @@ iOS 27のLiquid Glassは積極的に使ってよいが、
 
 ## Home
 
-主役は個体。
+MVP v0.1はtab barを持たない。
+一つのprimary surfaceの中央に3D個体を置く。
 
-ホームで見せるものを増やさない。
+表示は最小限にする。
 
-理想:
-
-- 余白
-- 深海の空間
 - 3D個体
-- ごく少ないシステムUI
-- 必要なら最新発話への控えめな導線
+- 最新発話
+- 発話標本箱への控えめな導線
+- Settingsへの控えめな導線
 
-画面を「情報で埋める」ことを完成度と勘違いしない。
+置かない:
+
+- chat input
+- prompt field
+- regenerate
+- memory一覧
+- dashboard
+- 「覚えていて」「違うよ」等のtraining feedback
+
+画面を情報で埋めることを完成度と勘違いしない。
 
 ## Specimen box
 
