@@ -7,12 +7,14 @@ import QuietCore
 @main
 @MainActor struct QuietApp: App {
     @State private var runtime: CreatureRuntime
+    @State private var notificationRouter = NotificationRouter()
     private static let refreshID = "org.kamesan.shizukana-ai.refresh"
 
     init() {
         let container = try! ModelContainer(for: StoredIndividual.self)
         let instance = CreatureRuntime(store: SwiftDataMemoryStore(container: container))
         _runtime = State(initialValue: instance)
+        UNUserNotificationCenter.current().delegate = notificationRouter
         instance.places.onVisit = { [weak instance] in
             Task { await instance?.wake() }
         }
@@ -20,7 +22,7 @@ import QuietCore
 
     var body: some Scene {
         WindowGroup {
-            RootView(runtime: runtime)
+            RootView(runtime: runtime, notificationRouter: notificationRouter)
                 .task {
                     await runtime.refresh()
                     await runtime.reconcileSources()

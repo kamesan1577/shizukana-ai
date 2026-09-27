@@ -97,6 +97,9 @@ final class CreatureRuntime {
                 }
             }
         }
+        if state.dream != nil, (try? await store.snapshot())?.dream == nil {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationID])
+        }
     }
 
     func wake(allowDream: Bool = true) async {
@@ -122,12 +125,12 @@ final class CreatureRuntime {
             }
             MemoryPolicy.maintain(&state, now: now)
         }
-        await consider(observation: current, dream: false, now: now)
+        await consider(observation: current, dreamDelivery: nil, now: now)
         if allowDream { await scheduleDream(after: now) }
         await refresh()
     }
 
-    private func consider(observation: SenseObservation?, dream: Bool, now: Date) async {
+    private func consider(observation: SenseObservation?, dreamDelivery: Date?, now: Date) async {
         guard var state = try? await store.snapshot() else { return }
         if state.budget?.day != BudgetPolicy.day(for: now) {
             var rng = SystemRandomNumberGenerator()
@@ -137,38 +140,41 @@ final class CreatureRuntime {
         }
         var rng = SystemRandomNumberGenerator()
         let recall = RecallEngine.recall(state.fragments, observation: observation, at: now, random: &rng)
-        let association = AssociationMaker.make(recall.selected, observation: observation, dream: dream)
+        let association = AssociationMaker.make(recall.selected, observation: observation, dream: dreamDelivery != nil)
         guard await model.available, let association else {
             record(BrainTrace(timestamp: now, observations: observation.map { [$0] } ?? [], recall: recall,
                               association: association, rawOutput: nil, result: "modelUnavailable / noGrounding", scheduledAt: nil))
             return
         }
         let raw = try? await model.respond(to: association.prompt)
-        let result = raw.map { SpeechGate.assess($0, association: association, recent: state.utterances,
-                                                  budget: state.budget!, now: now) } ?? .silence(.modelUnavailable)
+        let delivery = dreamDelivery ?? now
+        var recent = state.utterances
+        if let pending = state.dream { recent.append(pending.utterance) }
+        let result = raw.map { SpeechGate.assess($0, association: association, recent: recent,
+                                                  budget: state.budget!, now: delivery) } ?? .silence(.modelUnavailable)
         switch result {
         case .silence(let reason):
             record(BrainTrace(timestamp: now, observations: observation.map { [$0] } ?? [], recall: recall,
                               association: association, rawOutput: raw, result: reason.rawValue, scheduledAt: nil))
         case .accepted(let utterance):
             let selected = Set(recall.selected.map(\.id))
+            let recorded = Utterance(id: utterance.id, text: utterance.text, createdAt: delivery,
+                                     sourceIDs: utterance.sourceIDs)
             try? await store.update { snapshot in
-                snapshot.utterances.append(utterance)
+                if dreamDelivery == nil { snapshot.utterances.append(recorded) }
+                else { snapshot.dream = DreamUtterance(utterance: recorded, scheduledAt: delivery) }
                 snapshot.budget?.used += 1
                 for index in snapshot.fragments.indices where selected.contains(snapshot.fragments[index].id) {
                     snapshot.fragments[index].lastRecalledAt = now
                     snapshot.fragments[index].recallCount += 1
                 }
             }
-            if dream {
-                let delivery = nextDelivery(after: now)
-                let pending = DreamUtterance(utterance: utterance, scheduledAt: delivery)
-                try? await store.update { $0.dream = pending }
-                await scheduleNotification(utterance, at: delivery, identifier: notificationID)
+            if dreamDelivery != nil {
+                await scheduleNotification(recorded, at: delivery, identifier: notificationID)
                 record(BrainTrace(timestamp: now, observations: [], recall: recall, association: association,
                                   rawOutput: raw, result: "dream", scheduledAt: delivery))
             } else {
-                await scheduleNotification(utterance, at: now.addingTimeInterval(2), identifier: utterance.id.uuidString)
+                await scheduleNotification(recorded, at: now.addingTimeInterval(2), identifier: utterance.id.uuidString)
                 record(BrainTrace(timestamp: now, observations: [currentForTrace(observation)], recall: recall,
                                   association: association, rawOutput: raw, result: "accepted", scheduledAt: now))
             }
@@ -193,12 +199,19 @@ final class CreatureRuntime {
     private func scheduleDream(after now: Date) async {
         guard let state = try? await store.snapshot(), state.dream == nil,
               let budget = state.budget, budget.used < budget.limit else { return }
-        await consider(observation: nil, dream: true, now: now)
+        let delivery = nextDelivery(after: now)
+        // A reservation belongs to its delivery day; never spend tomorrow's budget today.
+        guard Calendar.current.isDate(delivery, inSameDayAs: now) else { return }
+        await consider(observation: nil, dreamDelivery: delivery, now: now)
     }
     func reconcileNotifications() async {
         guard let state = try? await store.snapshot(), let dream = state.dream else { return }
         if dream.scheduledAt <= Date() {
-            try? await store.update { $0.dream = nil }
+            try? await store.update {
+                $0.utterances.append(dream.utterance)
+                $0.dream = nil
+            }
+            await refresh()
             return
         }
         let pending = await UNUserNotificationCenter.current().pendingNotificationRequests()
@@ -229,7 +242,7 @@ final class CreatureRuntime {
 }
 
 // Keeping permission checks in one place makes revocation reconciliation explicit.
-import PhotoKit
+import Photos
 import EventKit
 private enum PHAuthorization {
     @MainActor static var photoAccess: Bool {

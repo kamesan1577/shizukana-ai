@@ -45,7 +45,7 @@ public enum SpeechGate {
         let forbidden = ["してください", "しましょう", "おすすめ", "教えて", "リマインド", "理由", "なぜなら"]
         guard !forbidden.contains(where: text.contains) else { return .silence(.assistantLike) }
         guard budget.used < budget.limit else { return .silence(.budget) }
-        guard !recent.contains(where: { now.timeIntervalSince($0.createdAt) < 3 * 3600 }) else {
+        guard !recent.contains(where: { abs(now.timeIntervalSince($0.createdAt)) < 3 * 3600 }) else {
             return .silence(.interval)
         }
         guard !recent.suffix(20).contains(where: { $0.text == text }) else { return .silence(.repetition) }

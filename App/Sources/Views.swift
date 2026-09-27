@@ -5,9 +5,11 @@ import UserNotifications
 
 struct RootView: View {
     @Bindable var runtime: CreatureRuntime
+    @Bindable var notificationRouter: NotificationRouter
     @AppStorage("didExplainSenses") private var didExplainSenses = false
     @State private var showSettings = false
     @State private var showSpecimens = false
+    @State private var showNotificationDetail = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -44,6 +46,15 @@ struct RootView: View {
         .tint(.primary)
         .sheet(isPresented: $showSettings) { SettingsView(runtime: runtime) }
         .sheet(isPresented: $showSpecimens) { SpecimenView(runtime: runtime) }
+        .sheet(isPresented: $showNotificationDetail) {
+            NavigationStack {
+                if let selected = runtime.utterances.first(where: { $0.id == notificationRouter.selectedID }) {
+                    SpecimenDetail(utterance: selected)
+                }
+            }
+        }
+        .onChange(of: notificationRouter.selectedID) { _, id in showNotificationDetail = id != nil }
+        .task { if notificationRouter.selectedID != nil { showNotificationDetail = true } }
         .sheet(isPresented: Binding(get: { !didExplainSenses }, set: { if !$0 { didExplainSenses = true } })) {
             NavigationStack {
                 VStack(alignment: .leading, spacing: 24) {
@@ -100,13 +111,7 @@ struct SpecimenView: View {
         NavigationStack {
             List(runtime.utterances) { utterance in
                 NavigationLink {
-                    VStack(alignment: .leading, spacing: 32) {
-                        Text(utterance.text).font(.title2)
-                        Text(utterance.createdAt, format: .dateTime.year().month().day().hour().minute())
-                            .foregroundStyle(.secondary)
-                        if !utterance.sourceIDs.isEmpty { Text("何かの記憶の痕跡").foregroundStyle(.tertiary) }
-                        Spacer()
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding()
+                    SpecimenDetail(utterance: utterance)
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(utterance.createdAt, format: .dateTime.year().month().day().hour().minute())
@@ -119,6 +124,19 @@ struct SpecimenView: View {
             .navigationTitle("標本箱")
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+}
+
+struct SpecimenDetail: View {
+    let utterance: Utterance
+    var body: some View {
+        VStack(alignment: .leading, spacing: 32) {
+            Text(utterance.text).font(.title2)
+            Text(utterance.createdAt, format: .dateTime.year().month().day().hour().minute())
+                .foregroundStyle(.secondary)
+            if !utterance.sourceIDs.isEmpty { Text("何かの記憶の痕跡").foregroundStyle(.tertiary) }
+            Spacer()
+        }.frame(maxWidth: .infinity, alignment: .leading).padding()
     }
 }
 

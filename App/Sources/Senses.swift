@@ -3,7 +3,7 @@ import QuietCore
 import CoreLocation
 import CoreMotion
 import EventKit
-import PhotoKit
+import Photos
 import Vision
 import WeatherKit
 
