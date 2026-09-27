@@ -26,29 +26,28 @@
 ```text
 Device-local signals
       ↓
-Sense adapters
+Observation (short-lived)
       ↓
-Normalization
+Memory Maker
       ↓
-Memory Store
+MemoryFragment
       ↓
-Weak Attention
-      ↓
-3–7 conscious fragments
+Recall (5 fragments)
       ↓
 Association
       ↓
-Small local LanguageModel
+SystemLanguageModel
       ↓
-Deterministic output gates
+Speech Gate
       ↓
-Utterance record
+Utterance / SILENCE
       ↓
 Local notification / specimen box
 ```
 
-このcognition pipelineはオンデバイスで完結させる。
-Apple platform service等の補助通信を使う場合も、生活データやmodel contextを独自backendへ送る構造にはしない。
+Observationは生値を含み得るが短命。
+長期保存では情報を落としたMemoryFragmentへ変換する。
+Language modelへ生活全体を渡さず、Recall後の小さなconscious stateだけを渡す。
 
 ## 3. Modules
 
@@ -118,114 +117,105 @@ protocol LanguageModelAdapter {
 
 ## 5. MemoryFragment
 
-概念例:
+MVP v0.1:
 
-```text
-id
-sourceType
-sourceIdentity
-capturedAt
-coarseLocationCluster?
-featureVector?
-scalarFeatures
-associationTokens
-salience
-provenance
+```swift
+struct MemoryFragment {
+    let id: UUID
+    var text: String
+    var tags: [String]
+    var origin: Origin
+    var bornAt: Date
+    var timeHint: TimeHint?
+    var placeKey: String?
+    var salience: Float
+    var strength: Float
+    var lastRecalledAt: Date?
+    var recallCount: Int
+    var truth: TruthType
+    var provenance: Provenance
+}
 ```
 
-元写真・元Healthデータ等を不必要に複製しない。
-必要なlocal cache / derived copyを持つこと自体は許容する。
+- `text` は最大64文字程度
+- `tags` は3〜6個
+- exact coordinateは長期記憶へ保存しない
+- vector DBはMVP必須ではない
+- Observationは最大72時間
+- MemoryFragmentは最大1,500件
+- 類似した古いfragmentはconsolidated memoryへ圧縮可能
 
-## 6. Weak Attention
+## 6. Recall / Weak Attention
 
-完全な検索エンジンにしない。
+毎回5 MemoryFragmentを基本とする。
 
-候補スコアの概念:
+score目安:
 
 ```text
-score =
-  similarity
-  + recency
-  + surprise
-  + sourceDiversity
-  + randomNoise
-  - repetitionPenalty
+0.30 * tag_or_semantic_hint
++ 0.15 * place_match
++ 0.15 * time_or_season_match
++ 0.15 * salience
++ 0.10 * forgottenness
++ 0.15 * random_noise
+- repetition_penalty
 ```
 
-重みはDeveloper Modeから調整可能にしてよい。
+選択:
 
-### Rules
+- 2: current contextと多少関連
+- 1: 長く想起していない
+- 1: random
+- 1: free slot
 
-- 3〜7 fragmentを選ぶ
-- 同じsourceだけで埋めない
-- deterministic top-kにしすぎない
-- 古い記憶にはdecay
-- ただし強い類似で復活可能
-- 何も引っかからない場合は喋らない
+精密検索を目的にしない。
+「少し外れた記憶が混ざる」ことを品質として扱う。
+fixture + seed固定時は再現可能にする。
 
 ## 7. Association
 
-Attention結果から、
-モデルへ渡す情報をさらに粗くする。
+入力は、粗化したcurrent ObservationとRecallされた5断片だけ。
 
-モデルへ生の巨大コンテキストを渡さない。
+禁止:
 
-例:
+- 生の巨大なmemory context
+- exact location history
+- full photo library
+- future calendar agenda
+- life-log summary
 
-```text
-time: evening
-image_relation: similar_to_old
-place_relation: different_cluster
-age_hint: old
-visual_hint: warm/red
-```
-
-意味ラベルを増やしすぎない。
-「世界理解の解像度を上げる」実装はドグマ違反になり得る。
+Associationはさらに情報を落とし、Speech Gateへ渡せる小さなstateへする。
+この情報損失が「構造的な弱さ」の一部である。
 
 ## 8. Local language model
 
-iOS 27のFoundation Models `LanguageModel` abstractionの上に、
-Core AIで変換した小型モデルを載せる構成を第一候補とする。
+MVP v0.1ではFoundation Modelsの `SystemLanguageModel` を `LanguageModelAdapter` 越しに利用する。
 
-初期選定:
+- inferenceはオンデバイス
+- cloud fallback禁止
+- model unavailable時はその実行機会では黙る
+- sessionは必要最小限のcontextで作る
+- private user contextを外部AIへ送らない
 
-- 0.5〜1B級
-- 日本語最低限
-- iPhone 16で常用可能
-- Core AI export可能
-- 再配布可能ライセンス
-- app同梱可能サイズ
+モデルの潜在能力を低く保つことは要件ではない。
+弱さはObservationの粗化、Recall件数、noise、Associationの情報損失で作る。
 
-最終的なモデル名はベンチマークで決める。
+将来app-bundled modelへ差し替える余地は `LanguageModelAdapter` で維持する。
 
-### Evaluation axis
+## 9. Image memory / fetal memory
 
-賢さ最大化ではなく、
+初回はPhotoKitで許可されたassetから最大48枚をサンプルする。
 
-- 短い日本語を壊しすぎず出せる
-- 説明しすぎない
-- 与えた断片に弱く引っ張られる
-- 同じ定型句を繰り返しすぎない
-- iPhone 16で現実的に動く
+- 24: 全期間へ時間的に分散
+- 12: 直近90日
+- 6: favorite
+- 6: random
 
-を評価する。
+そこから12〜20程度のMemoryFragmentへ圧縮する。
+人物の実名同定はしない。
 
-## 9. Image memory
-
-Visionのimage feature print等を使い、
-画像の意味を完全な文章へ変換しない。
-
-保存候補:
-
-- feature vector
-- simple color / luminance features
-- capture timestamp
-- coarse location
-- PHAsset identifier
-
-PhotoKitがiCloud-backed assetをOS管理で取得することは許容する。
-静かなAI自身が写真・feature・model contextを独自endpointへuploadすることは禁止する。
+画像そのものをMemory Storeへ複製することを前提にしない。
+必要な処理のために一時取得してよいが、長期記憶は粗いtext/tags/time/place/provenance中心とする。
 
 ## 10. Location
 
@@ -245,35 +235,40 @@ AIの生活履歴やmodel contextをcustom requestへ載せない。
 
 ## 11. Background execution
 
-iOSのbackground executionは時刻保証されない前提で設計する。
+任意時刻のbackground起動は前提にしない。
 
-使い分け:
+使う実行機会:
 
-- Core Location event
+- Core Location Visits
 - BGAppRefreshTask
-- BGProcessingTask
 - foreground opportunity
+- 必要に応じてBGProcessingTask
 
-実行可能なタイミングで、
+background eventでは短時間でObservation保存と次回refresh requestを行う。
+十分な実行時間がある場合だけRecall〜Speech Gateまで進める。
 
-1. 新しい断片を取り込む
-2. Attention判定
-3. 必要なら発話生成
-4. Local notificationを将来時刻へschedule
-
-する。
-
-「完全にランダムな時刻へ必ず発火」は保証しない。
-ユーザー体験として不定期に見えればよい。
+また、実行機会が少ない場合に備えて `DreamUtterance` を最大1件先行生成し、将来時刻のlocal notificationへ予約できる。
+Dreamは記憶だけから生成し、予約後に「現在の状態」を断言しない。
 
 ## 12. Notification budget
 
-永続状態として当日発話数を持つ。
+永続状態として日次budgetを持つ。
 
-- default max: 3/day
-- 0/dayを許容
-- silent streakを許容
-- repetition penaltyを持つ
+目安:
+
+- 0回: 20%
+- 1回: 55%
+- 2回: 20%
+- 3回: 5%
+
+追加rules:
+
+- max 3/day
+- minimum interval 3 hours
+- 0/dayを正常系として許容
+- recent utterance repetition penalty
+- Speech Gateは積極的にSILENCEを選ぶ
+- DreamUtteranceも同じbudgetを消費する
 
 ## 13. Creature rendering
 
@@ -296,14 +291,23 @@ RealityKitを第一候補にする。
 第一候補:
 
 - SwiftData / local SQLite-backed persistence
-- vector/scalarはlocal blob/dataで保持
-- 必要ならAccelerateで類似計算
+- Observation
+- MemoryFragment
+- Utterance
+- DreamUtterance
+- daily notification budget
+- permission / source reconciliation state
+
+Retention:
+
+- Observation: max 72 hours
+- MemoryFragment: max 1,500
+- Utterance: persistent until reset
+- Developer trace: short-lived / bounded
 
 AIのMemory Storeを外部DBサーバーへ置かない。
-
 OS-managed backup / restoreは許容する。
-CloudKit等によるapp-managed memory syncは現在の要件には含めないが、永久禁止のarchitecture constraintにはしない。
-追加する場合は `SECURITY.md` に従って明示的にレビューする。
+CloudKit等によるapp-managed memory syncはMVPに含めない。
 
 ## 15. Network / privacy boundary
 
