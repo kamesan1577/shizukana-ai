@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "QuietCore",
-    platforms: [.iOS(.v27)],
+    platforms: [.iOS("27.0")],
     products: [.library(name: "QuietCore", targets: ["QuietCore"])],
     targets: [
         .target(name: "QuietCore"),
