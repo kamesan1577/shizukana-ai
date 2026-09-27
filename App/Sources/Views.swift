@@ -14,10 +14,11 @@ struct RootView: View {
     @State private var showNotificationDetail = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    private let accent = Color(red: 0.52, green: 0.81, blue: 0.72)
 
     var body: some View {
         ZStack {
-            Color(uiColor: .systemBackground).ignoresSafeArea()
+            Color(red: 0.035, green: 0.075, blue: 0.08).ignoresSafeArea()
             VStack(spacing: 0) {
                 HStack {
                     Button { showSpecimens = true } label: { Image(systemName: "square.stack") }
@@ -48,9 +49,10 @@ struct RootView: View {
                 }
             }
         }
-        .tint(.primary)
-        .sheet(isPresented: $showSettings) { SettingsView(runtime: runtime) }
-        .sheet(isPresented: $showSpecimens) { SpecimenView(runtime: runtime) }
+        .tint(accent)
+        .preferredColorScheme(.dark)
+        .sheet(isPresented: $showSettings) { SettingsView(runtime: runtime).tint(accent) }
+        .sheet(isPresented: $showSpecimens) { SpecimenView(runtime: runtime).tint(accent) }
         .sheet(isPresented: $showNotificationDetail) {
             NavigationStack {
                 if let selected = runtime.utterances.first(where: { $0.id == notificationRouter.selectedID }) {
@@ -86,20 +88,34 @@ struct CreatureView: View {
     @State private var recoil = false
     var body: some View {
         RealityView { content in
-            let body = ModelEntity(mesh: .generateSphere(radius: 0.65),
-                materials: [SimpleMaterial(color: UIColor(red: 0.08, green: 0.29, blue: 0.29, alpha: 0.72), isMetallic: false)])
+            let membrane = SimpleMaterial(color: UIColor(red: 0.15, green: 0.43, blue: 0.39, alpha: 0.63), isMetallic: false)
+            let tissue = SimpleMaterial(color: UIColor(red: 0.12, green: 0.28, blue: 0.26, alpha: 0.95), isMetallic: false)
+            let body = ModelEntity(mesh: .generateSphere(radius: 0.55), materials: [membrane])
             body.name = "membrane"
+            body.scale = [0.82, 1.18, 0.72]
+            body.orientation = simd_quatf(angle: -0.22, axis: [0, 0, 1])
             body.components.set(InputTargetComponent())
             body.generateCollisionShapes(recursive: true)
-            let core = ModelEntity(mesh: .generateSphere(radius: 0.27),
-                materials: [SimpleMaterial(color: UIColor(red: 0.05, green: 0.16, blue: 0.18, alpha: 1), isMetallic: false)])
-            core.position = [0.05, -0.08, 0.32]
+            let core = ModelEntity(mesh: .generateSphere(radius: 0.18), materials: [tissue])
+            core.scale = [0.85, 1.45, 0.55]
+            core.position = [0.13, -0.14, 0.23]
             body.addChild(core)
+            let tail = ModelEntity(mesh: .generateSphere(radius: 0.22), materials: [membrane])
+            tail.scale = [0.42, 1.15, 0.34]
+            tail.position = [-0.35, -0.37, -0.10]
+            tail.orientation = simd_quatf(angle: -0.48, axis: [0, 0, 1])
+            body.addChild(tail)
+            let ridge = ModelEntity(mesh: .generateSphere(radius: 0.16), materials: [tissue])
+            ridge.scale = [0.32, 1.5, 0.32]
+            ridge.position = [-0.15, 0.05, -0.15]
+            ridge.orientation = simd_quatf(angle: 0.33, axis: [0, 0, 1])
+            body.addChild(ridge)
             content.add(body)
         } update: { content in
             if let entity = content.entities.first {
-                entity.transform.scale = recoil ? SIMD3<Float>(0.89, 0.94, 0.89) : SIMD3<Float>(1, 1, 1)
-                entity.transform.rotation = simd_quatf(angle: recoil ? 0.18 : 0, axis: [0, 1, 0])
+                entity.transform.scale = recoil ? SIMD3<Float>(0.72, 1.08, 0.65) : SIMD3<Float>(0.82, 1.18, 0.72)
+                entity.transform.rotation = simd_quatf(angle: -0.22, axis: [0, 0, 1])
+                    * simd_quatf(angle: recoil ? 0.18 : 0, axis: [0, 1, 0])
             }
         }
         .onTapGesture {
