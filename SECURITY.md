@@ -90,6 +90,12 @@ MapKit、Apple Maps、geocodingを必要に応じて利用してよい。
 地図を使うこと自体をprivacy violationとは扱わない。
 一方で、静かなAI独自の生活履歴、記憶、model context等をcustom requestへ載せない。
 
+### WeatherKit
+
+現在の天気を得るため、位置権限を許可した端末ではAppleのWeatherKitに現在地の座標を渡す。
+送るのはWeatherKitの標準要求に必要な位置であり、独自の記憶、写真特徴、prompt、発話履歴は加えない。
+位置権限がない場合は天気の観測を省き、他の感覚だけで動作する。
+
 ## Data minimization
 
 「元データを絶対に複製しない」ことは目的にしない。

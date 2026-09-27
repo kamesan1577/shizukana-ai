@@ -107,14 +107,15 @@ final class CreatureRuntime {
         }
     }
 
-    func wake(allowDream: Bool = true) async {
+    func wake(allowDream: Bool = true, backgroundOnly: Bool = false) async {
         guard !running else { return }
         running = true
         defer { running = false }
         let now = Date()
-        let senses: [any SenseSource] = injectedSenses ?? [TimeSense(),
+        let foreground: [any SenseSource] = [TimeSense(),
             WeatherSense(location: { [places] in await places.latestLocation }),
             places, ActivitySense(), calendar]
+        let senses: [any SenseSource] = injectedSenses ?? (backgroundOnly ? [TimeSense(), places] : foreground)
         var observations: [SenseObservation] = []
         for sense in senses { observations += await sense.observe(at: now) }
         guard let current = observations.first else { return }
@@ -132,6 +133,7 @@ final class CreatureRuntime {
             }
             MemoryPolicy.maintain(&state, now: now)
         }
+        if backgroundOnly { return }
         await consider(observation: current, dreamDelivery: nil, now: now)
         if allowDream { await scheduleDream(after: now) }
         await refresh()
@@ -240,9 +242,16 @@ final class CreatureRuntime {
         if traces.count > 30 { traces.removeFirst(traces.count - 30) }
     }
     func erase() async {
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        let center = UNUserNotificationCenter.current()
+        center.removeAllPendingNotificationRequests()
+        center.removeAllDeliveredNotifications()
         traces.removeAll()
         developerMode = false
+        UserDefaults.standard.removeObject(forKey: "quietStart")
+        UserDefaults.standard.removeObject(forKey: "quietEnd")
+        UserDefaults.standard.removeObject(forKey: "activitySenseEnabled")
+        UserDefaults.standard.removeObject(forKey: "didExplainSenses")
+        quietStart = 23; quietEnd = 7
         try? await store.reset()
         await refresh()
     }

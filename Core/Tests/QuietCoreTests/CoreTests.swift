@@ -107,3 +107,16 @@ import Testing
     MemoryPolicy.purge(&state) { $0 == SourceRef(.photo, "1") }
     #expect(state.fragments.isEmpty)
 }
+
+@Test func purgingOneSourceCancelsQueuedDream() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    let photo = SourceRef(.photo, "deleted")
+    let memory = MemoryFragment(text: "海", tags: ["海", "昼", "夏"], origin: .prenatal,
+                                bornAt: now, provenance: [photo])
+    var state = MemorySnapshot()
+    state.fragments = [memory]
+    state.dream = DreamUtterance(utterance: Utterance(text: "海、また", createdAt: now,
+                                                     sourceIDs: [memory.id]), scheduledAt: now)
+    MemoryPolicy.purge(&state) { $0 == photo }
+    #expect(state.dream == nil)
+}

@@ -16,7 +16,7 @@ import QuietCore
         _runtime = State(initialValue: instance)
         UNUserNotificationCenter.current().delegate = notificationRouter
         instance.places.onVisit = { [weak instance] in
-            Task { await instance?.wake() }
+            Task { await instance?.wake(backgroundOnly: true) }
         }
     }
 
@@ -33,7 +33,7 @@ import QuietCore
                 }
         }
         .backgroundTask(.appRefresh(Self.refreshID)) {
-            await runtime.wake(allowDream: false)
+            await runtime.wake(allowDream: false, backgroundOnly: true)
             await Self.scheduleRefresh()
         }
     }

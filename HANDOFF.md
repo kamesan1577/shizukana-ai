@@ -4,7 +4,11 @@
 
 Requirements: complete
 Architecture: initial design complete
-Implementation: not started
+Implementation: PR #15 in progress. Core, SwiftData, senses, PhotoKit bootstrap,
+background/notification scheduling, UI, privacy guard and tests are under CI review.
+
+Device-only acceptance remains separate from simulator CI: real iPhone 16 permissions,
+Foundation Models availability, background opportunities, and UI/accessibility review.
 
 ## Accepted product decisions
 

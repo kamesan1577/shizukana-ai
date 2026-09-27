@@ -160,6 +160,8 @@ struct SettingsView: View {
                     } label: { LabeledContent("写真", value: photoStatus) }
                     Button { runtime.places.requestPermission(); permissionRevision += 1 }
                         label: { LabeledContent("場所", value: runtime.places.permissionDescription) }
+                    Text("天気は、許可された現在地をApple WeatherKitに渡して取得します。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     Button {
                         Task {
                             if await ActivityPermission.request() {

@@ -29,11 +29,20 @@ targets:
     scheme:
       testTargets:
         - QuietAppTests
+        - QuietAppUITests
   QuietAppTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests
+      - path: ../Core/Tests/QuietCoreTests
     dependencies:
       - target: QuietApp
       - package: QuietCore
+  QuietAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: QuietApp

@@ -149,9 +149,12 @@ public enum MemoryPolicy {
         state.utterances = state.utterances.map { item in
             var copy = item; copy.sourceIDs.removeAll { removed.contains($0) }; return copy
         }
-        if var dream = state.dream {
-            dream.utterance.sourceIDs.removeAll { removed.contains($0) }
-            state.dream = dream.utterance.sourceIDs.isEmpty ? nil : dream
+        if let dream = state.dream {
+            if dream.utterance.sourceIDs.contains(where: { removed.contains($0) }) {
+                state.dream = nil
+            } else {
+                state.dream = dream
+            }
         }
         state.prenatalProcessedIDs = state.prenatalProcessedIDs.filter { !source(SourceRef(.photo, $0)) }
         state.prenatalSelectedIDs.removeAll { source(SourceRef(.photo, $0)) }
