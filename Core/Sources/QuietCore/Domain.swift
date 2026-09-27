@@ -10,7 +10,7 @@ public struct SourceRef: Codable, Hashable, Sendable {
     public init(_ kind: SenseKind, _ id: String) { self.kind = kind; self.id = id }
 }
 
-public struct Observation: Codable, Identifiable, Sendable {
+public struct SenseObservation: Codable, Identifiable, Sendable {
     public var id: UUID
     public var source: SourceRef
     public var observedAt: Date
@@ -86,7 +86,7 @@ public struct DailyBudget: Codable, Sendable {
 
 public protocol SenseSource: Sendable {
     var kind: SenseKind { get }
-    func observe(at date: Date) async -> [Observation]
+    func observe(at date: Date) async -> [SenseObservation]
 }
 
 public protocol MemoryStore: Sendable {
@@ -96,14 +96,14 @@ public protocol MemoryStore: Sendable {
 }
 
 public struct MemorySnapshot: Codable, Sendable {
-    public var observations: [Observation] = []
+    public var observations: [SenseObservation] = []
     public var fragments: [MemoryFragment] = []
     public var utterances: [Utterance] = []
     public var dream: DreamUtterance?
     public var budget: DailyBudget?
     public var prenatalSelectedIDs: [String] = []
     public var prenatalProcessedIDs: Set<String> = []
-    public var prenatalDraft: [Observation] = []
+    public var prenatalDraft: [SenseObservation] = []
     public init() {}
 }
 
@@ -111,6 +111,7 @@ public enum MemoryPolicy {
     public static func maintain(_ state: inout MemorySnapshot, now: Date) {
         state.observations.removeAll { $0.observedAt < now.addingTimeInterval(-72 * 3600) }
         if state.fragments.count > 1500 {
+            consolidate(&state, now: now)
             state.fragments.sort {
                 let lhs = $0.salience * $0.strength / (1 + Double($0.recallCount) * 0.05)
                 let rhs = $1.salience * $1.strength / (1 + Double($1.recallCount) * 0.05)
@@ -118,6 +119,27 @@ public enum MemoryPolicy {
             }
             state.fragments = Array(state.fragments.prefix(1500))
         }
+    }
+
+    // Called only under capacity pressure. Provenance is retained so deletion still purges the result.
+    public static func consolidate(_ state: inout MemorySnapshot, now: Date) {
+        let groups = Dictionary(grouping: state.fragments.filter {
+            $0.bornAt < now.addingTimeInterval(-30 * 86400)
+        }) { memory in
+            "\(memory.tags.sorted().prefix(2).joined(separator: ","))|\(memory.placeKey ?? "")|\(memory.timeHint ?? "")"
+        }
+        guard let group = groups.values.filter({ $0.count >= 3 }).max(by: { $0.count < $1.count }) else { return }
+        let ids = Set(group.map(\.id))
+        let sources = Array(Set(group.flatMap(\.provenance))).sorted { $0.id < $1.id }
+        let first = group.sorted { $0.bornAt < $1.bornAt }[0]
+        let merged = MemoryFragment(text: first.text, tags: first.tags, origin: .consolidated,
+                                    bornAt: first.bornAt, timeHint: first.timeHint,
+                                    placeKey: first.placeKey,
+                                    salience: group.map(\.salience).max() ?? 0.5,
+                                    strength: group.map(\.strength).max() ?? 0.5,
+                                    truth: .inferred, provenance: sources)
+        state.fragments.removeAll { ids.contains($0.id) }
+        state.fragments.append(merged)
     }
 
     public static func purge(_ state: inout MemorySnapshot, matching source: (SourceRef) -> Bool) {

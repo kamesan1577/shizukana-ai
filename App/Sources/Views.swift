@@ -132,7 +132,13 @@ struct SettingsView: View {
                 Section("感覚") {
                     Button("写真を見せる") { Task { await runtime.photos.requestPermission(); await runtime.bootstrap() } }
                     Button("場所を見せる") { runtime.places.requestPermission() }
-                    Button("活動を見せる") { Task { _ = await ActivityPermission.request() } }
+                    Button("活動を見せる") {
+                        Task {
+                            if await ActivityPermission.request() {
+                                UserDefaults.standard.set(true, forKey: "activitySenseEnabled")
+                            }
+                        }
+                    }
                     Button("カレンダーを見せる") { Task { await runtime.calendar.requestPermission() } }
                 }
                 Section("通知") {
@@ -186,7 +192,7 @@ struct DebugBrainView: View {
     var body: some View {
         List(runtime.traces.reversed()) { trace in
             Section(trace.timestamp.formatted()) {
-                LabeledContent("Observation", value: trace.observations.map(\.text).joined(separator: ", "))
+                LabeledContent("SenseObservation", value: trace.observations.map(\.text).joined(separator: ", "))
                 LabeledContent("Candidates", value: "\(trace.recall?.candidates.count ?? 0)")
                 ForEach(trace.recall?.candidates ?? [], id: \.id) { score in
                     LabeledContent(score.id.uuidString.prefix(8).description,

@@ -34,7 +34,7 @@ public struct RecallResult: Sendable {
 
 public enum RecallEngine {
     public static func recall<R: RandomNumberGenerator>(
-        _ fragments: [MemoryFragment], observation: Observation?, at date: Date,
+        _ fragments: [MemoryFragment], observation: SenseObservation?, at date: Date,
         random: inout R
     ) -> RecallResult {
         let scores = fragments.map { memory -> RecallScore in
@@ -43,13 +43,15 @@ public enum RecallEngine {
             let place = observation?.placeKey.flatMap { $0 == memory.placeKey ? 1.0 : 0 } ?? 0
             let time = observation?.timeHint.flatMap { $0 == memory.timeHint ? 1.0 : 0 } ?? 0
             let days = max(0, date.timeIntervalSince(memory.lastRecalledAt ?? memory.bornAt) / 86400)
+            let age = max(0, date.timeIntervalSince(memory.bornAt) / 86400)
+            let decay = max(0.25, exp(-age / 365))
             let forgottenness = min(1, days / 30) * memory.strength
             let noise = Double.random(in: 0..<1, using: &random)
             let penalty = memory.lastRecalledAt.map {
                 max(0, 0.3 * (1 - date.timeIntervalSince($0) / (7 * 86400)))
             } ?? 0
             return RecallScore(id: memory.id, related: related, place: place, time: time,
-                               salience: memory.salience, forgottenness: forgottenness,
+                               salience: memory.salience * decay, forgottenness: forgottenness,
                                noise: noise, repetitionPenalty: penalty)
         }
         let lookup = Dictionary(uniqueKeysWithValues: fragments.map { ($0.id, $0) })

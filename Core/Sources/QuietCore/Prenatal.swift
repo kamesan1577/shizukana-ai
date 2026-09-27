@@ -31,7 +31,7 @@ public enum PrenatalSampler {
         return Array(selected.prefix(48))
     }
 
-    public static func compress(_ observations: [Observation], at date: Date) -> [MemoryFragment] {
+    public static func compress(_ observations: [SenseObservation], at date: Date) -> [MemoryFragment] {
         guard !observations.isEmpty else { return [] }
         let count = min(20, max(12, Int(ceil(Double(observations.count) / 3))))
         let groups = min(count, observations.count)

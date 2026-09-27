@@ -12,7 +12,7 @@ public struct Association: Sendable {
 }
 
 public enum AssociationMaker {
-    public static func make(_ recalled: [MemoryFragment], observation: Observation?, dream: Bool) -> Association? {
+    public static func make(_ recalled: [MemoryFragment], observation: SenseObservation?, dream: Bool) -> Association? {
         guard !recalled.isEmpty else { return nil }
         let evidence = recalled.prefix(5).map { $0.text }.joined(separator: " / ")
         let context = dream ? "" : observation.map { "今の粗い気配: \($0.text)\n" } ?? ""

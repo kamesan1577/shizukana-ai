@@ -7,8 +7,8 @@ import Testing
     let photo = SourceRef(.photo, "asset-1")
     let id = UUID()
     var state = MemorySnapshot()
-    state.observations = [Observation(source: photo, observedAt: now.addingTimeInterval(-73 * 3600), text: "old", tags: []),
-                          Observation(source: photo, observedAt: now, text: "new", tags: [])]
+    state.observations = [SenseObservation(source: photo, observedAt: now.addingTimeInterval(-73 * 3600), text: "old", tags: []),
+                          SenseObservation(source: photo, observedAt: now, text: "new", tags: [])]
     state.fragments = (0..<1501).map { index in
         MemoryFragment(id: index == 0 ? id : UUID(), text: "海", tags: ["海", "昼", "夏"],
                        origin: .prenatal, bornAt: now, salience: index == 0 ? 1 : 0.5,
@@ -32,7 +32,7 @@ import Testing
                        bornAt: now.addingTimeInterval(Double(-i) * 86400),
                        salience: 0.5, provenance: [SourceRef(.time, "day")])
     }
-    let observation = Observation(source: SourceRef(.time, "today"), observedAt: now,
+    let observation = SenseObservation(source: SourceRef(.time, "today"), observedAt: now,
                                   text: "昼", tags: ["昼"])
     var first = SeededNoise(seed: 42)
     var second = SeededNoise(seed: 42)
@@ -87,9 +87,23 @@ import Testing
     #expect(first.count == 48)
     #expect(first.map(\.id) == second.map(\.id))
     #expect(Set(first.map(\.id)).count == 48)
-    let observations = first.map { Observation(source: SourceRef(.photo, $0.id), observedAt: now,
+    let observations = first.map { SenseObservation(source: SourceRef(.photo, $0.id), observedAt: now,
                                                 text: "空と水", tags: ["空", "水", "夏"]) }
     let memories = PrenatalSampler.compress(observations, at: now)
     #expect((12...20).contains(memories.count))
     #expect(Set(memories.flatMap(\.provenance).map(\.id)).count == 48)
+}
+
+@Test func consolidationRetainsEverySourceForPurge() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    var state = MemorySnapshot()
+    state.fragments = (0..<3).map { i in
+        MemoryFragment(text: "夏の海", tags: ["夏", "海", "昼"], origin: .lived,
+            bornAt: now.addingTimeInterval(-90 * 86400), provenance: [SourceRef(.photo, "\(i)")])
+    }
+    MemoryPolicy.consolidate(&state, now: now)
+    #expect(state.fragments.count == 1)
+    #expect(state.fragments[0].provenance.count == 3)
+    MemoryPolicy.purge(&state) { $0 == SourceRef(.photo, "1") }
+    #expect(state.fragments.isEmpty)
 }

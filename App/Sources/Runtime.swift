@@ -19,7 +19,7 @@ struct LocalModel: LanguageModelAdapter {
 struct BrainTrace: Identifiable {
     let id = UUID()
     let timestamp: Date
-    let observations: [Observation]
+    let observations: [SenseObservation]
     let recall: RecallResult?
     let association: Association?
     let rawOutput: String?
@@ -106,7 +106,7 @@ final class CreatureRuntime {
         let now = Date()
         let senses: [any SenseSource] = [TimeSense(), WeatherSense(location: { [places] in await places.latestLocation }),
                                          places, ActivitySense(), calendar]
-        var observations: [Observation] = []
+        var observations: [SenseObservation] = []
         for sense in senses { observations += await sense.observe(at: now) }
         guard let current = observations.first else { return }
         try? await store.update { state in
@@ -115,6 +115,7 @@ final class CreatureRuntime {
             let today = BudgetPolicy.day(for: now)
             let made = state.fragments.filter { $0.origin == .lived && BudgetPolicy.day(for: $0.bornAt) == today }.count
             for observation in observations.prefix(max(0, 4 - made)) {
+                guard !state.fragments.contains(where: { $0.origin == .lived && $0.provenance == [observation.source] && BudgetPolicy.day(for: $0.bornAt) == today }) else { continue }
                 state.fragments.append(MemoryFragment(text: observation.text, tags: observation.tags,
                     origin: .lived, bornAt: now, timeHint: observation.timeHint,
                     placeKey: observation.placeKey, provenance: [observation.source]))
@@ -126,7 +127,7 @@ final class CreatureRuntime {
         await refresh()
     }
 
-    private func consider(observation: Observation?, dream: Bool, now: Date) async {
+    private func consider(observation: SenseObservation?, dream: Bool, now: Date) async {
         guard var state = try? await store.snapshot() else { return }
         if state.budget?.day != BudgetPolicy.day(for: now) {
             var rng = SystemRandomNumberGenerator()
@@ -174,8 +175,8 @@ final class CreatureRuntime {
         }
     }
 
-    private func currentForTrace(_ observation: Observation?) -> Observation {
-        observation ?? Observation(source: SourceRef(.time, "unknown"), observedAt: Date(), text: "", tags: [])
+    private func currentForTrace(_ observation: SenseObservation?) -> SenseObservation {
+        observation ?? SenseObservation(source: SourceRef(.time, "unknown"), observedAt: Date(), text: "", tags: [])
     }
     private func nextDelivery(after date: Date) -> Date {
         var next = date.addingTimeInterval(4 * 3600)
