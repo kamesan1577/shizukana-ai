@@ -74,3 +74,22 @@ import Testing
     #expect(state.fragments.isEmpty)
     #expect(state.utterances.isEmpty)
 }
+
+@Test func prenatalSamplingIsBoundedAndReproducible() {
+    let now = Date(timeIntervalSince1970: 1_000_000)
+    let assets = (0..<100).map {
+        PhotoCandidate(id: "\($0)", createdAt: now.addingTimeInterval(Double(-$0) * 86400), favorite: $0.isMultiple(of: 9))
+    }
+    var a = SeededNoise(seed: 123)
+    var b = SeededNoise(seed: 123)
+    let first = PrenatalSampler.sample(assets, now: now, random: &a)
+    let second = PrenatalSampler.sample(assets, now: now, random: &b)
+    #expect(first.count == 48)
+    #expect(first.map(\.id) == second.map(\.id))
+    #expect(Set(first.map(\.id)).count == 48)
+    let observations = first.map { Observation(source: SourceRef(.photo, $0.id), observedAt: now,
+                                                text: "空と水", tags: ["空", "水", "夏"]) }
+    let memories = PrenatalSampler.compress(observations, at: now)
+    #expect((12...20).contains(memories.count))
+    #expect(Set(memories.flatMap(\.provenance).map(\.id)).count == 48)
+}

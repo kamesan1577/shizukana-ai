@@ -1,0 +1,8 @@
+.DS_Store
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+App/QuietApp.xcodeproj/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

@@ -1,0 +1,39 @@
+name: QuietApp
+options:
+  bundleIdPrefix: org.kamesan
+  deploymentTarget:
+    iOS: '27.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    CODE_SIGNING_ALLOWED: 'NO'
+packages:
+  QuietCore:
+    path: ../Core
+targets:
+  QuietApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Resources/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.kamesan.shizukana-ai
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: 'NO'
+    dependencies:
+      - package: QuietCore
+    scheme:
+      testTargets:
+        - QuietAppTests
+  QuietAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: QuietApp
+      - package: QuietCore

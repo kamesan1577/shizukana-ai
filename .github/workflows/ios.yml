@@ -1,0 +1,22 @@
+name: iOS
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  build-test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 27
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Privacy inventory
+        run: bash scripts/privacy-guard.sh
+      - name: Generate project
+        run: make project
+      - name: Build and test iPhone 16
+        run: xcodebuild -project App/QuietApp.xcodeproj -scheme QuietApp -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test

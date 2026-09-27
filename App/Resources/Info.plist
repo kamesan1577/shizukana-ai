@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleDevelopmentRegion</key><string>ja</string>
+<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+<key>CFBundleName</key><string>静かなAI</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>LSRequiresIPhoneOS</key><true/>
+<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
+<key>UIBackgroundModes</key><array><string>fetch</string><string>location</string></array>
+<key>BGTaskSchedulerPermittedIdentifiers</key><array><string>org.kamesan.shizukana-ai.refresh</string></array>
+<key>NSPhotoLibraryUsageDescription</key><string>許可された写真から、曖昧な記憶を端末内で作ります。</string>
+<key>NSLocationWhenInUseUsageDescription</key><string>場所の気配を粗い断片として端末内で覚えます。</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key><string>訪れた場所の気配を、OSの実行機会で端末内に記録します。</string>
+<key>NSMotionUsageDescription</key><string>歩いた量を大まかな気配として端末内で覚えます。</string>
+<key>NSCalendarsFullAccessUsageDescription</key><string>終了した予定だけを、曖昧な記憶として端末内で扱います。</string>
+</dict></plist>
