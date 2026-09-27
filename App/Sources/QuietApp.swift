@@ -8,7 +8,7 @@ import QuietCore
 @MainActor struct QuietApp: App {
     @State private var runtime: CreatureRuntime
     @State private var notificationRouter = NotificationRouter()
-    private static let refreshID = "org.kamesan.shizukana-ai.refresh"
+    private nonisolated static let refreshID = "org.kamesan.shizukana-ai.refresh"
 
     init() {
         let container = try! ModelContainer(for: StoredIndividual.self)
@@ -26,20 +26,21 @@ import QuietCore
                 .task {
                     await runtime.refresh()
                     await runtime.reconcileSources()
+                    await runtime.bootstrap()
                     await runtime.reconcileNotifications()
                     await runtime.wake()
-                    Self.scheduleRefresh()
+                    await Self.scheduleRefresh()
                 }
         }
         .backgroundTask(.appRefresh(Self.refreshID)) {
             await runtime.wake(allowDream: false)
-            Self.scheduleRefresh()
+            await Self.scheduleRefresh()
         }
     }
 
-    private nonisolated static func scheduleRefresh() {
+    private nonisolated static func scheduleRefresh() async {
         let request = BGAppRefreshTaskRequest(identifier: Self.refreshID)
         request.earliestBeginDate = Date().addingTimeInterval(4 * 3600)
-        try? BGTaskScheduler.shared.submit(request)
+        try? await BGTaskScheduler.shared.submitTaskRequest(request)
     }
 }

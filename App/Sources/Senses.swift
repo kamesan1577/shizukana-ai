@@ -27,6 +27,14 @@ final class PlaceSense: NSObject, SenseSource, @preconcurrency CLLocationManager
     private var latestVisit: CLVisit?
     var onVisit: (() -> Void)?
     var isAuthorized: Bool { manager.authorizationStatus == .authorizedAlways }
+    var permissionDescription: String {
+        switch manager.authorizationStatus {
+        case .authorizedAlways: "許可済み"
+        case .authorizedWhenInUse: "使用中のみ"
+        case .denied, .restricted: "許可なし"
+        default: "未設定"
+        }
+    }
     override init() { super.init(); manager.delegate = self }
     func requestPermission() {
         if manager.authorizationStatus == .notDetermined { manager.requestAlwaysAuthorization() }

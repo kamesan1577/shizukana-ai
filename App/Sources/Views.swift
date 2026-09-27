@@ -2,6 +2,8 @@ import SwiftUI
 import RealityKit
 import QuietCore
 import UserNotifications
+import Photos
+import EventKit
 
 struct RootView: View {
     @Bindable var runtime: CreatureRuntime
@@ -11,6 +13,7 @@ struct RootView: View {
     @State private var showSpecimens = false
     @State private var showNotificationDetail = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -55,6 +58,9 @@ struct RootView: View {
         }
         .onChange(of: notificationRouter.selectedID) { _, id in showNotificationDetail = id != nil }
         .task { if notificationRouter.selectedID != nil { showNotificationDetail = true } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await runtime.reconcileSources(); await runtime.reconcileNotifications(); await runtime.refresh() } }
+        }
         .sheet(isPresented: Binding(get: { !didExplainSenses }, set: { if !$0 { didExplainSenses = true } })) {
             NavigationStack {
                 VStack(alignment: .leading, spacing: 24) {
@@ -144,20 +150,27 @@ struct SettingsView: View {
     @Bindable var runtime: CreatureRuntime
     @State private var versionTaps = 0
     @State private var confirmErase = false
+    @State private var permissionRevision = 0
     var body: some View {
         NavigationStack {
             Form {
                 Section("感覚") {
-                    Button("写真を見せる") { Task { await runtime.photos.requestPermission(); await runtime.bootstrap() } }
-                    Button("場所を見せる") { runtime.places.requestPermission() }
-                    Button("活動を見せる") {
+                    Button {
+                        Task { await runtime.photos.requestPermission(); await runtime.bootstrap(); permissionRevision += 1 }
+                    } label: { LabeledContent("写真", value: photoStatus) }
+                    Button { runtime.places.requestPermission(); permissionRevision += 1 }
+                        label: { LabeledContent("場所", value: runtime.places.permissionDescription) }
+                    Button {
                         Task {
                             if await ActivityPermission.request() {
                                 UserDefaults.standard.set(true, forKey: "activitySenseEnabled")
+                                permissionRevision += 1
                             }
                         }
-                    }
-                    Button("カレンダーを見せる") { Task { await runtime.calendar.requestPermission() } }
+                    } label: { LabeledContent("活動", value: UserDefaults.standard.bool(forKey: "activitySenseEnabled") ? "許可済み" : "未設定") }
+                    Button { Task { await runtime.calendar.requestPermission(); permissionRevision += 1 } }
+                        label: { LabeledContent("カレンダー", value: EKEventStore.authorizationStatus(for: .event) == .fullAccess ? "許可済み" : "未設定") }
+                    Link("iOSの権限設定を開く", destination: URL(string: UIApplication.openSettingsURLString)!)
                 }
                 Section("通知") {
                     Button("通知を許可") {
@@ -188,6 +201,16 @@ struct SettingsView: View {
                 Button("消す", role: .destructive) { Task { await runtime.erase() } }
                 Button("やめる", role: .cancel) {}
             } message: { Text("記憶、標本、予約中の発話が消えます。元に戻せません。") }
+        }
+        .id(permissionRevision)
+    }
+
+    private var photoStatus: String {
+        switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
+        case .authorized: "許可済み"
+        case .limited: "選択した写真のみ"
+        case .denied, .restricted: "許可なし"
+        default: "未設定"
         }
     }
 }

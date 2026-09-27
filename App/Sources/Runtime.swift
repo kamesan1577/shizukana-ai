@@ -39,9 +39,12 @@ final class CreatureRuntime {
     var traces: [BrainTrace] = []
     var developerMode = false
     var modelReady = true
-    var onboardingComplete = false
-    var quietStart = 23
-    var quietEnd = 7
+    var quietStart = (UserDefaults.standard.object(forKey: "quietStart") as? Int) ?? 23 {
+        didSet { UserDefaults.standard.set(quietStart, forKey: "quietStart") }
+    }
+    var quietEnd = (UserDefaults.standard.object(forKey: "quietEnd") as? Int) ?? 7 {
+        didSet { UserDefaults.standard.set(quietEnd, forKey: "quietEnd") }
+    }
     private let injectedSenses: [any SenseSource]?
     private var running = false
     private let notificationID = "quiet-ai-dream"
@@ -83,7 +86,7 @@ final class CreatureRuntime {
     func reconcileSources() async {
         let state = try? await store.snapshot()
         guard let state else { return }
-        let photoStatus = await PHAuthorization.photoAccess
+        let photoStatus = PHAuthorization.photoAccess
         let photoIDs = photoStatus ? photos.accessibleIDs() : []
         let calendarAllowed = EKAuthorization.calendarAccess
         let placeAllowed = places.isAuthorized
@@ -115,12 +118,13 @@ final class CreatureRuntime {
         var observations: [SenseObservation] = []
         for sense in senses { observations += await sense.observe(at: now) }
         guard let current = observations.first else { return }
+        let gathered = observations
         try? await store.update { state in
-            state.observations.append(contentsOf: observations)
+            state.observations.append(contentsOf: gathered)
             // Only a few coarse fragments per day survive. The raw observation has a 72h TTL.
             let today = BudgetPolicy.day(for: now)
             let made = state.fragments.filter { $0.origin == .lived && BudgetPolicy.day(for: $0.bornAt) == today }.count
-            for observation in observations.prefix(max(0, 4 - made)) {
+            for observation in gathered.prefix(max(0, 4 - made)) {
                 guard !state.fragments.contains(where: { $0.origin == .lived && $0.provenance == [observation.source] && BudgetPolicy.day(for: $0.bornAt) == today }) else { continue }
                 state.fragments.append(MemoryFragment(text: observation.text, tags: observation.tags,
                     origin: .lived, bornAt: now, timeHint: observation.timeHint,
