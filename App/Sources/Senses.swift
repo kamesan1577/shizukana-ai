@@ -20,7 +20,7 @@ struct TimeSense: SenseSource {
 }
 
 @MainActor
-final class PlaceSense: NSObject, SenseSource, CLLocationManagerDelegate {
+final class PlaceSense: NSObject, SenseSource, @preconcurrency CLLocationManagerDelegate {
     nonisolated let kind: SenseKind = .location
     private let manager = CLLocationManager()
     private(set) var latestLocation: CLLocation?

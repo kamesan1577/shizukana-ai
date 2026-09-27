@@ -28,16 +28,16 @@ import QuietCore
                     await runtime.reconcileSources()
                     await runtime.reconcileNotifications()
                     await runtime.wake()
-                    scheduleRefresh()
+                    Self.scheduleRefresh()
                 }
         }
         .backgroundTask(.appRefresh(Self.refreshID)) {
             await runtime.wake(allowDream: false)
-            scheduleRefresh()
+            Self.scheduleRefresh()
         }
     }
 
-    private func scheduleRefresh() {
+    private nonisolated static func scheduleRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: Self.refreshID)
         request.earliestBeginDate = Date().addingTimeInterval(4 * 3600)
         try? BGTaskScheduler.shared.submit(request)

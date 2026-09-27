@@ -42,11 +42,13 @@ final class CreatureRuntime {
     var onboardingComplete = false
     var quietStart = 23
     var quietEnd = 7
+    private let injectedSenses: [any SenseSource]?
     private var running = false
     private let notificationID = "quiet-ai-dream"
 
-    init(store: any MemoryStore, model: any LanguageModelAdapter = LocalModel()) {
-        self.store = store; self.model = model
+    init(store: any MemoryStore, model: any LanguageModelAdapter = LocalModel(),
+         senses: [any SenseSource]? = nil) {
+        self.store = store; self.model = model; self.injectedSenses = senses
     }
 
     func refresh() async {
@@ -107,8 +109,9 @@ final class CreatureRuntime {
         running = true
         defer { running = false }
         let now = Date()
-        let senses: [any SenseSource] = [TimeSense(), WeatherSense(location: { [places] in await places.latestLocation }),
-                                         places, ActivitySense(), calendar]
+        let senses: [any SenseSource] = injectedSenses ?? [TimeSense(),
+            WeatherSense(location: { [places] in await places.latestLocation }),
+            places, ActivitySense(), calendar]
         var observations: [SenseObservation] = []
         for sense in senses { observations += await sense.observe(at: now) }
         guard let current = observations.first else { return }
