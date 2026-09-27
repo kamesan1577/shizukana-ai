@@ -47,14 +47,17 @@ final class CreatureRuntime {
         didSet { UserDefaults.standard.set(quietEnd, forKey: "quietEnd") }
     }
     private let injectedSenses: [any SenseSource]?
+    private let clock: @MainActor () -> Date
     private var running = false
     private let notificationID = "quiet-ai-dream"
 
     init(store: any MemoryStore, model: any LanguageModelAdapter = LocalModel(),
          senses: [any SenseSource]? = nil,
-         notifications: any NotificationScheduling = LocalNotificationScheduler()) {
+         notifications: any NotificationScheduling = LocalNotificationScheduler(),
+         clock: @escaping @MainActor () -> Date = { Date() }) {
         self.store = store; self.model = model; self.injectedSenses = senses
         self.notifications = notifications
+        self.clock = clock
     }
 
     func refresh() async {
@@ -66,7 +69,7 @@ final class CreatureRuntime {
 
     func bootstrap() async {
         guard let state = try? await store.snapshot() else { return }
-        let now = Date()
+        let now = clock()
         let selection = state.prenatalSelectedIDs.isEmpty ? photos.selectAssets(at: now) : state.prenatalSelectedIDs
         if state.prenatalSelectedIDs.isEmpty {
             try? await store.update { $0.prenatalSelectedIDs = selection }
@@ -118,7 +121,7 @@ final class CreatureRuntime {
         guard !running else { return }
         running = true
         defer { running = false }
-        let now = Date()
+        let now = clock()
         let foreground: [any SenseSource] = [TimeSense(),
             WeatherSense(location: { [places] in await places.latestLocation }),
             places, ActivitySense(), calendar]

@@ -4,6 +4,27 @@ import SwiftData
 @testable import QuietApp
 
 final class AppTests: XCTestCase {
+    @MainActor func testSyntheticDaysRespectZeroThroughThreeBudgets() async throws {
+        let store = InMemoryStore()
+        let clock = FixtureClock(date: Date(timeIntervalSince1970: 1_767_268_800))
+        let runtime = CreatureRuntime(store: store, model: CyclingModel(),
+                                      senses: [FixtureSense()], notifications: StubNotifications(),
+                                      clock: { clock.date })
+        var expected = 0
+        for limit in 0...3 {
+            let day = Calendar.current.date(byAdding: .day, value: limit, to: Date(timeIntervalSince1970: 1_767_268_800))!
+            try await store.update { $0.budget = DailyBudget(day: BudgetPolicy.day(for: day), limit: limit) }
+            for opportunity in 0..<3 {
+                clock.date = day.addingTimeInterval(Double(opportunity) * 4 * 3600)
+                await runtime.wake(allowDream: false)
+            }
+            expected += limit
+            let state = try await store.snapshot()
+            XCTAssertEqual(state.utterances.count, expected)
+            XCTAssertEqual(state.budget?.used, limit)
+        }
+    }
+
     func testResetAndNoCloudFallback() async throws {
         let store = InMemoryStore()
         let runtime = await CreatureRuntime(store: store, model: UnavailableModel(),
@@ -47,6 +68,20 @@ final class AppTests: XCTestCase {
         try await store.reset()
         let after = try await store.snapshot()
         XCTAssertNil(after.budget)
+    }
+}
+
+@MainActor private final class FixtureClock {
+    var date: Date
+    init(date: Date) { self.date = date }
+}
+
+private actor CyclingModel: LanguageModelAdapter {
+    private var count = 0
+    var available: Bool { get async { true } }
+    func respond(to prompt: String) async throws -> String {
+        count += 1
+        return "海、また見えた\(count)"
     }
 }
 
