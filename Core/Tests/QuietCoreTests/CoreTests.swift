@@ -63,6 +63,10 @@ import Testing
                                                    recent: [], budget: DailyBudget(day: "day", limit: 0), now: now) else {
         Issue.record("silent days must be normal"); return
     }
+    guard case .silence(.assistantLike) = SpeechGate.assess("明日の会議を確認して", association: association,
+        recent: [], budget: budget, now: now) else {
+        Issue.record("reminders must be silenced"); return
+    }
 }
 
 @Test func resetRemovesEntireIndividual() async throws {

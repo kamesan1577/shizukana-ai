@@ -105,7 +105,11 @@ final class CreatureRuntime {
                 }
             }
         }
-        if state.dream != nil, (try? await store.snapshot())?.dream == nil {
+        let after = try? await store.snapshot()
+        if after?.fragments.count != state.fragments.count || after?.observations.count != state.observations.count {
+            traces.removeAll() // Prompts and raw outputs may contain data from the revoked source.
+        }
+        if state.dream != nil, after?.dream == nil {
             notifications.removePending([notificationID])
         }
     }

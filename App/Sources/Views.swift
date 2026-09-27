@@ -54,7 +54,7 @@ struct RootView: View {
         .sheet(isPresented: $showNotificationDetail) {
             NavigationStack {
                 if let selected = runtime.utterances.first(where: { $0.id == notificationRouter.selectedID }) {
-                    SpecimenDetail(utterance: selected)
+                    SpecimenDetail(utterance: selected, store: runtime.store)
                 }
             }
         }
@@ -119,7 +119,7 @@ struct SpecimenView: View {
         NavigationStack {
             List(runtime.utterances) { utterance in
                 NavigationLink {
-                    SpecimenDetail(utterance: utterance)
+                    SpecimenDetail(utterance: utterance, store: runtime.store)
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(utterance.createdAt, format: .dateTime.year().month().day().hour().minute())
@@ -137,14 +137,22 @@ struct SpecimenView: View {
 
 struct SpecimenDetail: View {
     let utterance: Utterance
+    let store: any MemoryStore
+    @State private var vagueTrace = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
             Text(utterance.text).font(.title2)
             Text(utterance.createdAt, format: .dateTime.year().month().day().hour().minute())
                 .foregroundStyle(.secondary)
-            if !utterance.sourceIDs.isEmpty { Text("何かの記憶の痕跡").foregroundStyle(.tertiary) }
+            if !vagueTrace.isEmpty { Text(vagueTrace).foregroundStyle(.tertiary) }
             Spacer()
         }.frame(maxWidth: .infinity, alignment: .leading).padding()
+            .task(id: utterance.id) {
+                guard let snapshot = try? await store.snapshot() else { return }
+                let ids = Set(utterance.sourceIDs)
+                let tags = snapshot.fragments.filter { ids.contains($0.id) }.flatMap(\.tags)
+                vagueTrace = Array(Set(tags)).sorted().prefix(2).joined(separator: " ・ ")
+            }
     }
 }
 
