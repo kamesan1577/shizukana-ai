@@ -22,9 +22,11 @@ struct RootView: View {
                 HStack {
                     Button { showSpecimens = true } label: { Image(systemName: "square.stack") }
                         .accessibilityLabel("発話標本箱")
+                        .frame(width: 44, height: 44)
                     Spacer()
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("設定")
+                        .frame(width: 44, height: 44)
                 }
                 .font(.title3)
                 .buttonStyle(.plain)
@@ -38,7 +40,7 @@ struct RootView: View {
                 Text(runtime.latest?.text ?? "")
                     .font(.body)
                     .foregroundStyle(.secondary)
-                    .frame(height: 68)
+                    .frame(minHeight: 68)
                     .accessibilityLabel(runtime.latest?.text ?? "まだ言葉はありません")
                 if !runtime.modelReady {
                     Text("この端末では、まだ声を作れません")
@@ -63,16 +65,15 @@ struct RootView: View {
         }
         .sheet(isPresented: Binding(get: { !didExplainSenses }, set: { if !$0 { didExplainSenses = true } })) {
             NavigationStack {
-                VStack(alignment: .leading, spacing: 24) {
+                ScrollView { VStack(alignment: .leading, spacing: 24) {
                     Text("静かなAI").font(.largeTitle)
                     Text("この生き物は、あなたの生活の断片を見ます。")
                     Text("記憶や推論のために、生活データを外部AIや開発者サーバーへ送りません。感覚は後から一つずつ選べます。")
                         .foregroundStyle(.secondary)
-                    Spacer()
                     Button("はじめる") { didExplainSenses = true }
                         .buttonStyle(.borderedProminent)
                         .frame(maxWidth: .infinity)
-                }
+                } }
                 .padding(30)
             }
             .interactiveDismissDisabled()
@@ -108,6 +109,7 @@ struct CreatureView: View {
                 recoil = false
             }
         }
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -151,6 +153,7 @@ struct SettingsView: View {
     @State private var versionTaps = 0
     @State private var confirmErase = false
     @State private var permissionRevision = 0
+    @AppStorage("weatherSenseEnabled") private var weatherEnabled = false
     var body: some View {
         NavigationStack {
             Form {
@@ -160,8 +163,10 @@ struct SettingsView: View {
                     } label: { LabeledContent("写真", value: photoStatus) }
                     Button { runtime.places.requestPermission(); permissionRevision += 1 }
                         label: { LabeledContent("場所", value: runtime.places.permissionDescription) }
-                    Text("天気は、許可された現在地をApple WeatherKitに渡して取得します。")
+                    Text("天気にはWeatherKit対応の署名が必要です。許可された現在地をAppleに渡して取得します。")
                         .font(.footnote).foregroundStyle(.secondary)
+                    Toggle("天気", isOn: $weatherEnabled)
+                    LabeledContent("時刻", value: "常に利用")
                     Button {
                         Task {
                             if await ActivityPermission.request() {

@@ -45,3 +45,9 @@ CIは `xcode-27` runnerで iPhone 16 Simulatorを作成し、テスト結果と�
 
 実機に入れる際は自分のApple Development teamで署名してください。署名情報はrepoに置きません。
 Foundation Modelsが使えない状態ではコア発話は行わず、クラウドへ切り替えません。
+
+天気は任意です。WeatherKitにはApple Developer Programの会員資格と
+App IDのWeatherKit capabilityが必要です。対応する署名を使う場合だけ
+`App/Resources/WeatherKit.entitlements` をXcode targetのentitlementsとして指定し、
+設定で天気を有効にしてください。通常の無料署名ではこのentitlementを付けず、
+ほかの感覚で動きます。

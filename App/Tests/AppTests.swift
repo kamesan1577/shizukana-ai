@@ -6,7 +6,8 @@ import SwiftData
 final class AppTests: XCTestCase {
     func testResetAndNoCloudFallback() async throws {
         let store = InMemoryStore()
-        let runtime = await CreatureRuntime(store: store, model: UnavailableModel())
+        let runtime = await CreatureRuntime(store: store, model: UnavailableModel(),
+                                            notifications: StubNotifications())
         await runtime.wake(allowDream: false)
         let before = try await store.snapshot()
         XCTAssertTrue(before.utterances.isEmpty)
@@ -25,7 +26,8 @@ final class AppTests: XCTestCase {
                 origin: .prenatal, bornAt: Date().addingTimeInterval(-86400),
                 provenance: [SourceRef(.photo, "fixture")])]
         }
-        let runtime = await CreatureRuntime(store: store, model: FixedModel(), senses: [FixtureSense()])
+        let runtime = await CreatureRuntime(store: store, model: FixedModel(),
+                                            senses: [FixtureSense()], notifications: StubNotifications())
         await runtime.wake(allowDream: false)
         await runtime.wake(allowDream: false)
         let snapshot = try await store.snapshot()
@@ -67,4 +69,11 @@ private struct FixtureSense: SenseSource {
         [SenseObservation(source: SourceRef(.time, "fixture-day"), observedAt: date,
                           text: "夏の昼", tags: ["海", "夏", "昼"], timeHint: "昼")]
     }
+}
+
+private struct StubNotifications: NotificationScheduling {
+    func schedule(_ utterance: Utterance, at date: Date, identifier: String) async {}
+    func pendingIDs() async -> Set<String> { [] }
+    func removePending(_ identifiers: [String]) {}
+    func removeAll() {}
 }

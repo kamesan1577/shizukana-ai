@@ -64,6 +64,7 @@ struct WeatherSense: SenseSource {
     let kind: SenseKind = .weather
     let location: @Sendable () async -> CLLocation?
     func observe(at date: Date) async -> [SenseObservation] {
+        guard UserDefaults.standard.bool(forKey: "weatherSenseEnabled") else { return [] }
         guard let coordinate = await location(),
               let current = try? await WeatherService.shared.weather(for: coordinate, including: .current) else { return [] }
         let temperature = current.temperature.converted(to: .celsius).value
@@ -152,10 +153,12 @@ final class PhotoSense: SenseSource {
             if Task.isCancelled { break }
             let results = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil)
             guard let asset = results.firstObject, let data = await imageData(for: asset) else { continue }
-            let request = VNClassifyImageRequest()
-            let handler = VNImageRequestHandler(data: data)
-            guard (try? handler.perform([request])) != nil else { continue }
-            let tags = Array((request.results ?? []).filter { $0.confidence > 0.15 }.prefix(3).map(\.identifier))
+            let tags = await Task.detached(priority: .utility) { () -> [String] in
+                let request = VNClassifyImageRequest()
+                let handler = VNImageRequestHandler(data: data)
+                guard (try? handler.perform([request])) != nil else { return [] }
+                return Array((request.results ?? []).filter { $0.confidence > 0.15 }.prefix(3).map(\.identifier))
+            }.value
             let coarse = Array((tags + ["写真", "昔", "景色"]).prefix(3))
             observations.append(SenseObservation(source: SourceRef(.photo, id), observedAt: asset.creationDate ?? Date(),
                                             text: "昔の写真に\(coarse[0])", tags: coarse))

@@ -6,6 +6,7 @@ on:
 jobs:
   build-test:
     runs-on: xcode-27
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode 27
@@ -23,7 +24,7 @@ jobs:
       - name: Build and test iPhone 16
         run: |
           mkdir -p build
-          xcodebuild -project App/QuietApp.xcodeproj -scheme QuietApp -destination 'platform=iOS Simulator,name=Quiet-iPhone-16' -resultBundlePath build/QuietApp.xcresult CODE_SIGNING_ALLOWED=NO test
+          xcodebuild -project App/QuietApp.xcodeproj -scheme QuietApp -destination 'platform=iOS Simulator,name=Quiet-iPhone-16' -parallel-testing-enabled NO -resultBundlePath build/QuietApp.xcresult CODE_SIGNING_ALLOWED=NO test
       - name: Preserve test results and screenshots
         if: always()
         uses: actions/upload-artifact@v4

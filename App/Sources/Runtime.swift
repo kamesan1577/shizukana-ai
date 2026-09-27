@@ -31,6 +31,7 @@ struct BrainTrace: Identifiable {
 final class CreatureRuntime {
     let store: any MemoryStore
     let model: any LanguageModelAdapter
+    let notifications: any NotificationScheduling
     let photos = PhotoSense()
     let places = PlaceSense()
     let calendar = CalendarSense()
@@ -50,8 +51,10 @@ final class CreatureRuntime {
     private let notificationID = "quiet-ai-dream"
 
     init(store: any MemoryStore, model: any LanguageModelAdapter = LocalModel(),
-         senses: [any SenseSource]? = nil) {
+         senses: [any SenseSource]? = nil,
+         notifications: any NotificationScheduling = LocalNotificationScheduler()) {
         self.store = store; self.model = model; self.injectedSenses = senses
+        self.notifications = notifications
     }
 
     func refresh() async {
@@ -103,7 +106,7 @@ final class CreatureRuntime {
             }
         }
         if state.dream != nil, (try? await store.snapshot())?.dream == nil {
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationID])
+            notifications.removePending([notificationID])
         }
     }
 
@@ -179,11 +182,11 @@ final class CreatureRuntime {
                 }
             }
             if dreamDelivery != nil {
-                await scheduleNotification(recorded, at: delivery, identifier: notificationID)
+                await notifications.schedule(recorded, at: delivery, identifier: notificationID)
                 record(BrainTrace(timestamp: now, observations: [], recall: recall, association: association,
                                   rawOutput: raw, result: "dream", scheduledAt: delivery))
             } else {
-                await scheduleNotification(recorded, at: now.addingTimeInterval(2), identifier: utterance.id.uuidString)
+                await notifications.schedule(recorded, at: now.addingTimeInterval(2), identifier: utterance.id.uuidString)
                 record(BrainTrace(timestamp: now, observations: [currentForTrace(observation)], recall: recall,
                                   association: association, rawOutput: raw, result: "accepted", scheduledAt: now))
             }
@@ -223,18 +226,10 @@ final class CreatureRuntime {
             await refresh()
             return
         }
-        let pending = await UNUserNotificationCenter.current().pendingNotificationRequests()
-        if !pending.contains(where: { $0.identifier == notificationID }) {
-            await scheduleNotification(dream.utterance, at: dream.scheduledAt, identifier: notificationID)
+        let pending = await notifications.pendingIDs()
+        if !pending.contains(notificationID) {
+            await notifications.schedule(dream.utterance, at: dream.scheduledAt, identifier: notificationID)
         }
-    }
-    private func scheduleNotification(_ utterance: Utterance, at date: Date, identifier: String) async {
-        let center = UNUserNotificationCenter.current()
-        let content = UNMutableNotificationContent()
-        content.body = utterance.text
-        content.userInfo = ["utteranceID": utterance.id.uuidString]
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
-        try? await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
     }
     private func record(_ trace: BrainTrace) {
         traces.append(trace)
@@ -242,14 +237,13 @@ final class CreatureRuntime {
         if traces.count > 30 { traces.removeFirst(traces.count - 30) }
     }
     func erase() async {
-        let center = UNUserNotificationCenter.current()
-        center.removeAllPendingNotificationRequests()
-        center.removeAllDeliveredNotifications()
+        notifications.removeAll()
         traces.removeAll()
         developerMode = false
         UserDefaults.standard.removeObject(forKey: "quietStart")
         UserDefaults.standard.removeObject(forKey: "quietEnd")
         UserDefaults.standard.removeObject(forKey: "activitySenseEnabled")
+        UserDefaults.standard.removeObject(forKey: "weatherSenseEnabled")
         UserDefaults.standard.removeObject(forKey: "didExplainSenses")
         quietStart = 23; quietEnd = 7
         try? await store.reset()
