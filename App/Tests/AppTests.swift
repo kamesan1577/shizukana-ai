@@ -4,6 +4,13 @@ import SwiftData
 @testable import QuietApp
 
 final class AppTests: XCTestCase {
+    func testBackgroundRefreshIdentifierIsAdvertised() {
+        let identifiers = Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String]
+        XCTAssertTrue(identifiers?.contains("org.kamesan.shizukana-ai.refresh") == true)
+        let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String]
+        XCTAssertTrue(modes?.contains("fetch") == true)
+    }
+
     @MainActor func testQuietHoursSuppressAwakeSpeech() async throws {
         let store = InMemoryStore()
         let night = Calendar.current.date(bySettingHour: 1, minute: 0, second: 0, of: Date())!
