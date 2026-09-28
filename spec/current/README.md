@@ -1,6 +1,6 @@
 # 静かなAI — Current Product Specification
 
-Status: requirements accepted / implementation in progress (PR #15)
+Status: requirements accepted / MVP implementation merged (PR #15); physical-device acceptance open (Issue #13)
 
 ## 1. Objective
 
