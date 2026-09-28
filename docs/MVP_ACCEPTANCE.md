@@ -15,7 +15,7 @@ This record maps `spec/current/README.md` §22 to evidence. Simulator evidence d
 | 14, 15, 18 | iPhone 16 UI test covers home, settings, specimen entry, and absence of text input; attached screenshots in the workflow artifact | Touch response and accessibility on device |
 | 17 | `resetRemovesEntireIndividual`, `testSwiftDataRoundTripAndErase`, and `testResetAndNoCloudFallback` | OS notifications and permissions after reset on device |
 | 19 | Seven taps unlock bounded in-memory Debug Brain trace; fixed-seed Recall test | Full multi-day trace inspection with real model |
-| 20 | Native SwiftUI and iPhone 16 simulator screenshots reviewed | VoiceOver, Dynamic Type, Reduce Motion and HIG review on device |
+| 20 | Native SwiftUI and iPhone 16 simulator screenshots reviewed; automated accessibility audits cover the home screen and settings labels, clipping and hit regions; an accessibility extra-large text launch and screenshot cover settings | VoiceOver, Reduce Motion and HIG review on device; Dynamic Type throughout the full flow on device |
 | 21 | `scripts/privacy-guard.sh` runs in CI; no app-controlled networking or cloud AI dependency | Network-off device run and external review of new transfer paths |
 
-The CI run and its `iphone16-test-results` artifact are linked from PR #15. A green simulator run is the automated gate; the physical iPhone 16 and entitlement-dependent scenarios remain open under Issue #13.
+The [iPhone 16 / iOS 27 CI run](https://github.com/kamesan1577/shizukana-ai/actions/runs/36375197282) passed, and its [iphone16-test-results artifact](https://github.com/kamesan1577/shizukana-ai/actions/runs/36375197282/artifacts/10950613665) contains screenshots and test results. A green simulator run is the automated gate; the physical iPhone 16 and entitlement-dependent scenarios remain open under Issue #13.
