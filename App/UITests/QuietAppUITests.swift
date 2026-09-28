@@ -1,7 +1,7 @@
 import XCTest
 
 final class QuietAppUITests: XCTestCase {
-    func testHomeAndSettingsOnIPhone16() {
+    func testHomeAndSettingsOnIPhone16() throws {
         let app = XCUIApplication()
         app.launch()
         if app.buttons["はじめる"].waitForExistence(timeout: 10) {
@@ -14,6 +14,7 @@ final class QuietAppUITests: XCTestCase {
         home.name = "iPhone 16 home"
         home.lifetime = .keepAlways
         add(home)
+        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion])
 
         app.buttons["発話標本箱"].tap()
         XCTAssertTrue(app.staticTexts["まだ標本はありません"].waitForExistence(timeout: 5))
@@ -25,5 +26,6 @@ final class QuietAppUITests: XCTestCase {
         settings.name = "iPhone 16 settings"
         settings.lifetime = .keepAlways
         add(settings)
+        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion])
     }
 }
