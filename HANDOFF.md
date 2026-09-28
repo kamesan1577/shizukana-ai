@@ -4,9 +4,10 @@
 
 Requirements: complete
 Architecture: initial design complete
-Implementation: draft PR #15 contains the MVP vertical slice. iPhone 16 simulator
+Implementation: merged PR #15 contains the MVP vertical slice. iPhone 16 simulator
 build, Core/App/UI tests, privacy inventory and screenshots pass in CI. See
-`docs/MVP_ACCEPTANCE.md` for evidence and the device-only gate.
+`docs/MVP_ACCEPTANCE.md` for automated evidence and `docs/DEVICE_ACCEPTANCE.md`
+for the device-only gate in Issue #13.
 
 Device-only acceptance remains separate from simulator CI: real iPhone 16 permissions,
 Foundation Models availability, background opportunities, and UI/accessibility review.
@@ -50,7 +51,7 @@ Foundation Models availability, background opportunities, and UI/accessibility r
 2. Record real permission, PhotoKit and source-revocation behavior.
 3. Record background and local-notification delivery across termination.
 4. Review VoiceOver, Dynamic Type, Reduce Motion and network-off cognition.
-5. Resolve Issue #13 and move PR #15 out of draft only after device evidence is recorded.
+5. Record results in `docs/DEVICE_ACCEPTANCE.md` and resolve Issue #13 only after device evidence is collected. PR #15 has already merged with the device gate explicitly open.
 
 ## Unresolved implementation choices
 

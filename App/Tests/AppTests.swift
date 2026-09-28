@@ -97,6 +97,32 @@ final class AppTests: XCTestCase {
         let after = try await store.snapshot()
         XCTAssertNil(after.budget)
     }
+
+    @MainActor func testDreamReconciliationReschedulesThenRecordsDeliveredSpecimen() async throws {
+        let store = InMemoryStore()
+        let notifications = RecordingNotifications()
+        let future = Date().addingTimeInterval(3600)
+        let utterance = Utterance(text: "海、また", createdAt: future, sourceIDs: [])
+        try await store.update {
+            $0.dream = DreamUtterance(utterance: utterance, scheduledAt: future)
+        }
+        let runtime = CreatureRuntime(store: store, model: UnavailableModel(), notifications: notifications)
+
+        await runtime.reconcileNotifications()
+        let queued = await notifications.scheduled
+        XCTAssertEqual(queued.count, 1)
+        XCTAssertEqual(queued.first?.identifier, "quiet-ai-dream")
+        XCTAssertEqual(queued.first?.text, utterance.text)
+        let beforeDelivery = try await store.snapshot()
+        XCTAssertEqual(beforeDelivery.dream?.utterance.id, utterance.id)
+
+        try await store.update { $0.dream?.scheduledAt = Date().addingTimeInterval(-1) }
+        await runtime.reconcileNotifications()
+        let delivered = try await store.snapshot()
+        XCTAssertNil(delivered.dream)
+        XCTAssertEqual(delivered.utterances.map(\.id), [utterance.id])
+        XCTAssertEqual(runtime.utterances.map(\.id), [utterance.id])
+    }
 }
 
 @MainActor private final class FixtureClock {
@@ -139,4 +165,18 @@ private struct StubNotifications: NotificationScheduling {
     func pendingIDs() async -> Set<String> { [] }
     func removePending(_ identifiers: [String]) {}
     func removeAll() {}
+}
+
+private actor RecordingNotifications: NotificationScheduling {
+    struct Scheduled: Sendable {
+        let identifier: String
+        let text: String
+    }
+    private(set) var scheduled: [Scheduled] = []
+    func schedule(_ utterance: Utterance, at date: Date, identifier: String) async {
+        scheduled.append(Scheduled(identifier: identifier, text: utterance.text))
+    }
+    func pendingIDs() async -> Set<String> { [] }
+    nonisolated func removePending(_ identifiers: [String]) {}
+    nonisolated func removeAll() {}
 }
