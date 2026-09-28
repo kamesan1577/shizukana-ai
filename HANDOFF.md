@@ -4,8 +4,9 @@
 
 Requirements: complete
 Architecture: initial design complete
-Implementation: PR #15 in progress. Core, SwiftData, senses, PhotoKit bootstrap,
-background/notification scheduling, UI, privacy guard and tests are under CI review.
+Implementation: draft PR #15 contains the MVP vertical slice. iPhone 16 simulator
+build, Core/App/UI tests, privacy inventory and screenshots pass in CI. See
+`docs/MVP_ACCEPTANCE.md` for evidence and the device-only gate.
 
 Device-only acceptance remains separate from simulator CI: real iPhone 16 permissions,
 Foundation Models availability, background opportunities, and UI/accessibility review.
@@ -16,7 +17,7 @@ Foundation Models availability, background opportunities, and UI/accessibility r
 - native Swift / SwiftUI
 - on-device AI cognition; no private-data export to developer / unreviewed third-party systems
 - OS-managed backup / restore and normal Apple platform services are allowed
-- local bundled small model
+- Foundation Models `SystemLanguageModel` for MVP; bundled model remains an adapter option
 - weak perception + weak attention + small LM
 - 3–7 conscious fragments per utterance
 - long-term imperfect recall
@@ -43,30 +44,17 @@ Foundation Models availability, background opportunities, and UI/accessibility r
 - Apple HIG mandatory
 - anti-slop mandatory for UI review
 
-## Next implementation steps
+## Next acceptance steps
 
-1. Create the public repository.
-2. Install agent skills from `tools/AGENT_SKILLS.md`.
-3. Create Xcode 27 SwiftUI app shell.
-4. Add privacy/network-boundary CI guard before feature code.
-5. Implement local memory schema + fixtures.
-6. Implement deterministic Weak Attention with test seed.
-7. Benchmark 0.5–1B Core AI model candidates on iPhone 16.
-8. Implement a vertical slice:
-   fixture memories → attention → model → utterance → specimen box.
-9. Add PhotoKit feature-print ingestion.
-10. Add background scheduling / local notification.
-11. Build first RealityKit creature prototype.
-12. Add remaining senses incrementally.
+1. Sign and run on a physical iPhone 16 with an available on-device model.
+2. Record real permission, PhotoKit and source-revocation behavior.
+3. Record background and local-notification delivery across termination.
+4. Review VoiceOver, Dynamic Type, Reduce Motion and network-off cognition.
+5. Resolve Issue #13 and move PR #15 out of draft only after device evidence is recorded.
 
 ## Unresolved implementation choices
 
 These do not require new product interviews unless they threaten the dogma.
 
-- exact OSS license
-- exact small model
-- exact 3D asset pipeline
-- persistence implementation details
-- final attention weights
-- exact utterance max token/character cap
 - final sideload store
+- optional WeatherKit signing/entitlement for a paid developer team
