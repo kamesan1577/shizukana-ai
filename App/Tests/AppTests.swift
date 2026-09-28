@@ -9,6 +9,8 @@ final class AppTests: XCTestCase {
         XCTAssertTrue(identifiers?.contains("org.kamesan.shizukana-ai.refresh") == true)
         let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String]
         XCTAssertTrue(modes?.contains("fetch") == true)
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSPhotoLibraryUsageDescription"))
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSLocationAlwaysAndWhenInUseUsageDescription"))
     }
 
     @MainActor func testQuietHoursSuppressAwakeSpeech() async throws {
