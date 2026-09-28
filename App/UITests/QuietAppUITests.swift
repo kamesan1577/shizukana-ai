@@ -26,6 +26,23 @@ final class QuietAppUITests: XCTestCase {
         settings.name = "iPhone 16 settings"
         settings.lifetime = .keepAlways
         add(settings)
-        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion])
+        try app.performAccessibilityAudit(for: [.textClipped, .sufficientElementDescription, .hitRegion])
+    }
+
+    func testSettingsWithAccessibilityLargeText() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXL"]
+        app.launch()
+        if app.buttons["はじめる"].waitForExistence(timeout: 10) {
+            app.buttons["はじめる"].tap()
+        }
+        app.buttons["設定"].tap()
+        XCTAssertTrue(app.staticTexts["感覚"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["写真"].exists)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "iPhone 16 settings large text"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        try app.performAccessibilityAudit(for: [.textClipped, .hitRegion])
     }
 }
