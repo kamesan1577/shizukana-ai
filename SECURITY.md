@@ -90,6 +90,13 @@ MapKit、Apple Maps、geocodingを必要に応じて利用してよい。
 地図を使うこと自体をprivacy violationとは扱わない。
 一方で、静かなAI独自の生活履歴、記憶、model context等をcustom requestへ載せない。
 
+### WeatherKit
+
+現在の天気を得るため、位置権限を許可した端末ではAppleのWeatherKitに現在地の座標を渡す。
+送るのはWeatherKitの標準要求に必要な位置であり、独自の記憶、写真特徴、prompt、発話履歴は加えない。
+天気は初期状態で無効。WeatherKit entitlementを持つ署名で設定から有効化した場合だけ呼び出す。
+位置権限がない場合も天気の観測を省き、他の感覚だけで動作する。
+
 ## Data minimization
 
 「元データを絶対に複製しない」ことは目的にしない。
@@ -121,6 +128,7 @@ MapKit、Apple Maps、geocodingを必要に応じて利用してよい。
 
 OSのData Protectionを使う。
 バックグラウンド要件と両立する範囲で強いfile protectionを選ぶ。
+個体のSwiftData storeは初回ロック解除後にbackgroundから利用できる保護レベルのディレクトリへ作る。
 
 個人データをUserDefaultsへ雑に置かない。
 

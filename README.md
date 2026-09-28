@@ -1,6 +1,6 @@
-# 静かなAI — specification starter pack
+# 静かなAI
 
-これは「静かなAI」の要件定義・設計ドグマ・Agent/Codex ハーネスの初期セットです。
+要件とiOS 27アプリのソースを置く公開リポジトリです。
 
 ## いちばん大事なこと
 
@@ -35,3 +35,23 @@ AIの記憶・Attention・推論・発話生成はオンデバイスで完結さ
 
 最初からOSSとして作りますが、まず本人が使えることを優先します。
 サイドロード配布を後から簡単に行える構成にし、App Store対応は非優先です。
+
+## ビルドとテスト
+
+Xcode 27、iOS 27 Simulator、XcodeGenが必要です。`make project` で
+`App/QuietApp.xcodeproj` を生成し、Xcodeで `QuietApp` schemeを開きます。
+`make check` はプライバシー検査と iPhone 16 Simulator のテストを実行します。
+CIは `xcode-27` runnerで iPhone 16 Simulatorを作成し、テスト結果と画面をartifactに残します。
+
+実機に入れる際はXcodeの `QuietApp` targetのSigning & Capabilitiesで自分のApple Development teamを選び、
+端末向けのbundle IDを必要に応じて設定してください。署名情報はrepoに置きません。
+シミュレータCIと `make check` はコマンドラインで署名を無効にします。
+Foundation Modelsが使えない状態ではコア発話は行わず、クラウドへ切り替えません。
+
+実機での受け入れ確認は [`docs/MVP_ACCEPTANCE.md`](docs/MVP_ACCEPTANCE.md) に記録します。
+
+天気は任意です。WeatherKitにはApple Developer Programの会員資格と
+App IDのWeatherKit capabilityが必要です。対応する署名を使う場合だけ
+`App/Resources/WeatherKit.entitlements` をXcode targetのentitlementsとして指定し、
+設定で天気を有効にしてください。通常の無料署名ではこのentitlementを付けず、
+ほかの感覚で動きます。

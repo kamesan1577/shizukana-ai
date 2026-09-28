@@ -1,0 +1,7 @@
+.PHONY: project check
+project:
+	cd App && xcodegen generate
+check: project
+	bash scripts/privacy-guard.sh
+	bash scripts/create-iphone16-simulator.sh
+	xcodebuild -project App/QuietApp.xcodeproj -scheme QuietApp -destination 'platform=iOS Simulator,name=Quiet-iPhone-16' CODE_SIGNING_ALLOWED=NO test

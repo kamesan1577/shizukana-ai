@@ -1,6 +1,6 @@
 # 静かなAI — Current Product Specification
 
-Status: requirements accepted / implementation not started
+Status: requirements accepted / implementation in progress (PR #15)
 
 ## 1. Objective
 
