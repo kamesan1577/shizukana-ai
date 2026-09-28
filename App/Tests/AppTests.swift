@@ -54,23 +54,26 @@ final class AppTests: XCTestCase {
         XCTAssertNil(after.budget)
     }
 
-    func testGroundedWakeThenThreeHourSilence() async throws {
+    @MainActor func testGroundedWakeThenThreeHourSilence() async throws {
         let store = InMemoryStore()
-        let today = BudgetPolicy.day(for: Date())
+        let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
+        let clock = FixtureClock(date: noon)
+        let today = BudgetPolicy.day(for: noon)
         try await store.update {
             $0.budget = DailyBudget(day: today, limit: 2)
             $0.fragments = [MemoryFragment(text: "昔の海", tags: ["海", "夏", "昼"],
-                origin: .prenatal, bornAt: Date().addingTimeInterval(-86400),
+                origin: .prenatal, bornAt: noon.addingTimeInterval(-86400),
                 provenance: [SourceRef(.photo, "fixture")])]
         }
-        let runtime = await CreatureRuntime(store: store, model: FixedModel(),
-                                            senses: [FixtureSense()], notifications: StubNotifications())
+        let runtime = CreatureRuntime(store: store, model: FixedModel(),
+                                      senses: [FixtureSense()], notifications: StubNotifications(),
+                                      clock: { clock.date })
         await runtime.wake(allowDream: false)
         await runtime.wake(allowDream: false)
         let snapshot = try await store.snapshot()
         XCTAssertEqual(snapshot.utterances.count, 1)
-        XCTAssertEqual(snapshot.utterances[0].text, "海、まだあった")
-        XCTAssertEqual(snapshot.utterances[0].sourceIDs.count, 2)
+        XCTAssertEqual(snapshot.utterances.first?.text, "海、まだあった")
+        XCTAssertEqual(snapshot.utterances.first?.sourceIDs.count, 2)
         XCTAssertEqual(snapshot.budget?.used, 1)
     }
 
