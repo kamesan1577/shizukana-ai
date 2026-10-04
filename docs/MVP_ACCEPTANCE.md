@@ -18,4 +18,16 @@ This record maps `spec/current/README.md` §22 to evidence. Simulator evidence d
 | 20 | Native SwiftUI and iPhone 16 simulator screenshots reviewed; automated accessibility audits cover the home screen and settings labels, clipping and hit regions; an accessibility extra-large text launch and screenshot cover settings | VoiceOver, Reduce Motion and HIG review on device; Dynamic Type throughout the full flow on device |
 | 21 | `scripts/privacy-guard.sh` runs in CI; no app-controlled networking or cloud AI dependency | Network-off device run and external review of new transfer paths |
 
-The [iPhone 16 / iOS 27 CI run](https://github.com/kamesan1577/shizukana-ai/actions/runs/36410737741) passed, and its [iphone16-test-results artifact](https://github.com/kamesan1577/shizukana-ai/actions/runs/36410737741/artifacts/10964940877) contains screenshots and test results. The new reconciliation test awaits this branch's CI run. A green simulator run is the automated gate; physical iPhone 16 and entitlement-dependent scenarios remain open under Issue #13. Record actual results in [DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md).
+The [iPhone 16 / iOS 27 CI run](https://github.com/kamesan1577/shizukana-ai/actions/runs/36410737741) passed, and its [iphone16-test-results artifact](https://github.com/kamesan1577/shizukana-ai/actions/runs/36410737741/artifacts/10964940877) contains screenshots and test results. The merged reconciliation regression also passed in [main CI #26](https://github.com/kamesan1577/shizukana-ai/actions/runs/36414860057). A green simulator run is the automated gate; physical iPhone 16 and entitlement-dependent scenarios remain open under Issue #13. Record actual results in [DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md).
+
+## Lifecycle completion pass (2026-10-04)
+
+This pass adds regression coverage for foreground re-entry, reset and source purge
+during suspended inference, cancelled cognition, persistence failure before notification,
+clock-driven/idempotent Dream reconciliation, quiet-hour changes, bounded daily photo
+selection, draft expiry, and provenance across consolidation/capacity eviction.
+
+Local `scripts/privacy-guard.sh` and `git diff --check` passed. Swift/Xcode are
+unavailable in the Linux editing environment; the new Swift tests require the exact
+PR commit's iPhone 16 / iOS 27 CI result before this automated gate can be marked passed.
+Physical-device scenarios in `DEVICE_ACCEPTANCE.md` remain pending.

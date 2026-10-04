@@ -6,6 +6,7 @@ import QuietCore
 
 @main
 @MainActor struct QuietApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var runtime: CreatureRuntime
     @State private var notificationRouter: NotificationRouter
     private nonisolated static let refreshID = "org.kamesan.shizukana-ai.refresh"
@@ -32,12 +33,12 @@ import QuietCore
     var body: some Scene {
         WindowGroup {
             RootView(runtime: runtime, notificationRouter: notificationRouter)
-                .task {
-                    await runtime.refresh()
-                    await runtime.reconcileSources()
-                    await runtime.bootstrap()
-                    await runtime.reconcileNotifications()
-                    await runtime.wake()
+                .onChange(of: scenePhase) { _, phase in
+                    if phase != .active { runtime.deactivate() }
+                }
+                .task(id: scenePhase) {
+                    guard scenePhase == .active else { return }
+                    await runtime.activate()
                     await Self.scheduleRefresh()
                 }
         }

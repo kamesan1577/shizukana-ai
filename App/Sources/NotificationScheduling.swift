@@ -5,8 +5,8 @@ import QuietCore
 protocol NotificationScheduling: Sendable {
     func schedule(_ utterance: Utterance, at date: Date, identifier: String) async
     func pendingIDs() async -> Set<String>
-    func removePending(_ identifiers: [String])
-    func removeAll()
+    func removePending(_ identifiers: [String]) async
+    func removeAll() async
 }
 
 struct LocalNotificationScheduler: NotificationScheduling {
@@ -22,10 +22,10 @@ struct LocalNotificationScheduler: NotificationScheduling {
         let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
         return Set(requests.map(\.identifier))
     }
-    func removePending(_ identifiers: [String]) {
+    func removePending(_ identifiers: [String]) async {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
     }
-    func removeAll() {
+    func removeAll() async {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
         center.removeAllDeliveredNotifications()

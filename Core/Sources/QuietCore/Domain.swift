@@ -104,12 +104,23 @@ public struct MemorySnapshot: Codable, Sendable {
     public var prenatalSelectedIDs: [String] = []
     public var prenatalProcessedIDs: Set<String> = []
     public var prenatalDraft: [SenseObservation] = []
+    public var prenatalDraftStartedAt: Date?
     public init() {}
 }
 
 public enum MemoryPolicy {
     public static func maintain(_ state: inout MemorySnapshot, now: Date) {
         state.observations.removeAll { $0.observedAt < now.addingTimeInterval(-72 * 3600) }
+        let draftExpired = state.prenatalDraftStartedAt.map {
+            $0 < now.addingTimeInterval(-72 * 3600)
+        } ?? true
+        if !state.prenatalDraft.isEmpty, draftExpired {
+            // Old photos need an acquisition-time TTL, not their historical capture date.
+            // Clear the checkpoint too so an interrupted bootstrap can reconstruct its draft.
+            state.prenatalProcessedIDs.subtract(state.prenatalDraft.map { $0.source.id })
+            state.prenatalDraft.removeAll()
+        }
+        if state.prenatalDraft.isEmpty { state.prenatalDraftStartedAt = nil }
         if state.fragments.count > 1500 {
             consolidate(&state, now: now)
             state.fragments.sort {
@@ -117,8 +128,13 @@ public enum MemoryPolicy {
                 let rhs = $1.salience * $1.strength / (1 + Double($1.recallCount) * 0.05)
                 return lhs > rhs
             }
-            state.fragments = Array(state.fragments.prefix(1500))
+            let evicted = Set(state.fragments.dropFirst(1500).map(\.id))
+            discardFragments(&state, ids: evicted)
         }
+        // Repair pre-fix snapshots whose references were orphaned by older compaction.
+        let retained = Set(state.fragments.map(\.id))
+        let references = state.utterances.flatMap(\.sourceIDs) + (state.dream?.utterance.sourceIDs ?? [])
+        detachReferences(&state, to: Set(references).subtracting(retained))
     }
 
     // Called only under capacity pressure. Provenance is retained so deletion still purges the result.
@@ -140,24 +156,45 @@ public enum MemoryPolicy {
                                     truth: .inferred, provenance: sources)
         state.fragments.removeAll { ids.contains($0.id) }
         state.fragments.append(merged)
+        // References must follow the retained provenance; orphaned IDs cannot be purged later.
+        func remap(_ references: [UUID]) -> [UUID] {
+            var seen = Set<UUID>()
+            return references.map { ids.contains($0) ? merged.id : $0 }
+                .filter { seen.insert($0).inserted }
+        }
+        for index in state.utterances.indices {
+            state.utterances[index].sourceIDs = remap(state.utterances[index].sourceIDs)
+        }
+        if var dream = state.dream {
+            dream.utterance.sourceIDs = remap(dream.utterance.sourceIDs)
+            state.dream = dream
+        }
     }
 
     public static func purge(_ state: inout MemorySnapshot, matching source: (SourceRef) -> Bool) {
         let removed = Set(state.fragments.filter { $0.provenance.contains(where: source) }.map(\.id))
-        state.fragments.removeAll { removed.contains($0.id) }
+        discardFragments(&state, ids: removed)
         state.observations.removeAll { source($0.source) }
-        state.utterances = state.utterances.map { item in
-            var copy = item; copy.sourceIDs.removeAll { removed.contains($0) }; return copy
-        }
-        if let dream = state.dream {
-            if dream.utterance.sourceIDs.contains(where: { removed.contains($0) }) {
-                state.dream = nil
-            } else {
-                state.dream = dream
-            }
-        }
         state.prenatalProcessedIDs = state.prenatalProcessedIDs.filter { !source(SourceRef(.photo, $0)) }
         state.prenatalSelectedIDs.removeAll { source(SourceRef(.photo, $0)) }
         state.prenatalDraft.removeAll { source($0.source) }
+        if state.prenatalDraft.isEmpty { state.prenatalDraftStartedAt = nil }
+    }
+
+    // Rebuilding a draft must retire its old evidence IDs without clearing source checkpoints.
+    public static func discardFragments(_ state: inout MemorySnapshot, ids: Set<UUID>) {
+        state.fragments.removeAll { ids.contains($0.id) }
+        detachReferences(&state, to: ids)
+    }
+
+    private static func detachReferences(_ state: inout MemorySnapshot, to removed: Set<UUID>) {
+        state.utterances = state.utterances.map { item in
+            var copy = item; copy.sourceIDs.removeAll { removed.contains($0) }; return copy
+        }
+        if let dream = state.dream,
+           dream.utterance.sourceIDs.contains(where: { removed.contains($0) }) {
+            // A queued utterance cannot be re-grounded after losing evidence.
+            state.dream = nil
+        }
     }
 }

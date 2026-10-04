@@ -29,12 +29,14 @@ public final class SwiftDataMemoryStore: MemoryStore {
         let record = records.first(where: { $0.key == "individual" }) ?? StoredIndividual()
         record.payload = try JSONEncoder().encode(state)
         if record.modelContext == nil { context.insert(record) }
-        try context.save()
+        do { try context.save() }
+        catch { context.rollback(); throw error }
     }
 
     public func reset() throws {
         try context.delete(model: StoredIndividual.self)
-        try context.save()
+        do { try context.save() }
+        catch { context.rollback(); throw error }
     }
 }
 

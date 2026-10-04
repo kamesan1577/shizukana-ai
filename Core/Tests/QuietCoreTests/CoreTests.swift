@@ -128,3 +128,143 @@ import Testing
     MemoryPolicy.purge(&state) { $0 == photo }
     #expect(state.dream == nil)
 }
+
+@Test func consolidationKeepsUtteranceAndDreamProvenancePurgeable() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    var state = MemorySnapshot()
+    state.fragments = (0..<3).map { index in
+        MemoryFragment(text: "夏の海", tags: ["夏", "海", "昼"], origin: .lived,
+            bornAt: now.addingTimeInterval(-90 * 86400),
+            provenance: [SourceRef(.photo, "photo-\(index)")])
+    }
+    let originalIDs = state.fragments.map(\.id)
+    state.utterances = [Utterance(text: "海、また", createdAt: now, sourceIDs: originalIDs)]
+    state.dream = DreamUtterance(utterance: Utterance(text: "海、まだ", createdAt: now,
+                                                     sourceIDs: [originalIDs[0], originalIDs[1]]),
+                                  scheduledAt: now.addingTimeInterval(4 * 3600))
+
+    MemoryPolicy.consolidate(&state, now: now)
+    let mergedID = state.fragments[0].id
+    #expect(state.utterances[0].sourceIDs == [mergedID])
+    #expect(state.dream?.utterance.sourceIDs == [mergedID])
+
+    MemoryPolicy.purge(&state) { $0 == SourceRef(.photo, "photo-0") }
+    #expect(state.fragments.isEmpty)
+    #expect(state.utterances[0].text == "海、また")
+    #expect(state.utterances[0].sourceIDs.isEmpty)
+    #expect(state.dream == nil)
+}
+
+@Test func capacityEvictionDetachesHistoryAndCancelsAffectedDream() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    let evicted = MemoryFragment(text: "薄い海", tags: ["海"], origin: .lived,
+        bornAt: now, salience: 0, provenance: [SourceRef(.photo, "evicted")])
+    var state = MemorySnapshot()
+    state.fragments = [evicted] + (0..<1500).map { index in
+        MemoryFragment(text: "残る記憶", tags: ["時刻"], origin: .lived,
+            bornAt: now, salience: 1, provenance: [SourceRef(.time, "day-\(index)")])
+    }
+    let keptID = state.fragments[1].id
+    state.utterances = [Utterance(text: "海、また", createdAt: now,
+                                 sourceIDs: [evicted.id, keptID])]
+    state.dream = DreamUtterance(utterance: Utterance(text: "海、まだ", createdAt: now,
+                                                     sourceIDs: [evicted.id, keptID]),
+                                  scheduledAt: now.addingTimeInterval(4 * 3600))
+
+    MemoryPolicy.maintain(&state, now: now)
+    #expect(state.fragments.count == 1500)
+    #expect(!state.fragments.contains { $0.id == evicted.id })
+    #expect(state.utterances[0].sourceIDs == [keptID])
+    #expect(state.dream == nil)
+}
+
+@Test func capacityEvictionPreservesUnrelatedDream() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    var state = MemorySnapshot()
+    state.fragments = (0..<1501).map { index in
+        MemoryFragment(text: "記憶", tags: ["時刻"], origin: .lived, bornAt: now,
+            salience: index == 0 ? 0 : 1, provenance: [SourceRef(.time, "day-\(index)")])
+    }
+    let keptID = state.fragments[1].id
+    let dream = DreamUtterance(utterance: Utterance(text: "夜、まだ", createdAt: now,
+                                                  sourceIDs: [keptID]),
+                               scheduledAt: now.addingTimeInterval(4 * 3600))
+    state.dream = dream
+    MemoryPolicy.maintain(&state, now: now)
+    #expect(state.dream?.id == dream.id)
+    #expect(state.dream?.utterance.sourceIDs == [keptID])
+}
+
+@Test func prenatalDraftExpiresByAcquisitionTimeAndCanResume() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    let draft = SenseObservation(source: SourceRef(.photo, "draft-photo"),
+        observedAt: now.addingTimeInterval(-365 * 86400), text: "昔の写真", tags: ["写真"])
+    var state = MemorySnapshot()
+    state.prenatalDraft = [draft]
+    state.prenatalSelectedIDs = ["draft-photo", "not-yet-read"]
+    state.prenatalProcessedIDs = ["draft-photo"]
+    state.prenatalDraftStartedAt = now
+
+    MemoryPolicy.maintain(&state, now: now)
+    #expect(state.prenatalDraft.count == 1) // Historical capture time is not draft retention time.
+    MemoryPolicy.maintain(&state, now: now.addingTimeInterval(73 * 3600))
+    #expect(state.prenatalDraft.isEmpty)
+    #expect(state.prenatalProcessedIDs.isEmpty)
+    #expect(state.prenatalSelectedIDs == ["draft-photo", "not-yet-read"])
+    #expect(state.prenatalDraftStartedAt == nil)
+}
+
+@Test func legacyDraftWithoutAcquisitionTimeIsDiscarded() throws {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    var state = MemorySnapshot()
+    state.prenatalDraft = [SenseObservation(source: SourceRef(.photo, "legacy-photo"),
+        observedAt: now, text: "昔の写真", tags: ["写真"])]
+    state.prenatalProcessedIDs = ["legacy-photo"]
+    let data = try JSONEncoder().encode(state)
+    var fields = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    fields.removeValue(forKey: "prenatalDraftStartedAt")
+    var decoded = try JSONDecoder().decode(MemorySnapshot.self,
+        from: JSONSerialization.data(withJSONObject: fields))
+    #expect(decoded.prenatalDraftStartedAt == nil)
+    MemoryPolicy.maintain(&decoded, now: now)
+    #expect(decoded.prenatalDraft.isEmpty)
+    #expect(decoded.prenatalProcessedIDs.isEmpty)
+}
+
+@Test func discardingRebuiltFragmentsDetachesHistoryAndCancelsDream() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    let prenatal = MemoryFragment(text: "昔の海", tags: ["海"], origin: .prenatal,
+        bornAt: now, provenance: [SourceRef(.photo, "prenatal")])
+    let lived = MemoryFragment(text: "夜の気配", tags: ["夜"], origin: .lived,
+        bornAt: now, provenance: [SourceRef(.time, "today")])
+    var state = MemorySnapshot()
+    state.fragments = [prenatal, lived]
+    state.prenatalDraft = [SenseObservation(source: SourceRef(.photo, "prenatal"),
+        observedAt: now, text: "昔の海", tags: ["海"])]
+    state.prenatalSelectedIDs = ["prenatal"]
+    state.prenatalProcessedIDs = ["prenatal"]
+    state.utterances = [Utterance(text: "海、まだ", createdAt: now, sourceIDs: [prenatal.id, lived.id])]
+    state.dream = DreamUtterance(utterance: Utterance(text: "海、また", createdAt: now,
+                                                     sourceIDs: [prenatal.id]), scheduledAt: now)
+
+    MemoryPolicy.discardFragments(&state, ids: [prenatal.id])
+    #expect(state.fragments.map(\.id) == [lived.id])
+    #expect(state.utterances[0].sourceIDs == [lived.id])
+    #expect(state.dream == nil)
+    #expect(state.prenatalDraft.count == 1)
+    #expect(state.prenatalSelectedIDs == ["prenatal"])
+    #expect(state.prenatalProcessedIDs == ["prenatal"])
+}
+
+@Test func maintenanceRepairsLegacyOrphanedEvidence() {
+    let now = Date(timeIntervalSince1970: 10_000_000)
+    let orphan = UUID()
+    let specimen = Utterance(text: "海、また", createdAt: now, sourceIDs: [orphan])
+    var state = MemorySnapshot()
+    state.utterances = [specimen]
+    state.dream = DreamUtterance(utterance: specimen, scheduledAt: now.addingTimeInterval(3600))
+    MemoryPolicy.maintain(&state, now: now)
+    #expect(state.utterances.first?.text == specimen.text)
+    #expect(state.utterances.first?.sourceIDs.isEmpty == true)
+    #expect(state.dream == nil)
+}

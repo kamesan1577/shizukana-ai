@@ -13,7 +13,6 @@ struct RootView: View {
     @State private var showSpecimens = false
     @State private var showNotificationDetail = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
     private let accent = Color(red: 0.52, green: 0.81, blue: 0.72)
 
     var body: some View {
@@ -62,9 +61,6 @@ struct RootView: View {
         }
         .onChange(of: notificationRouter.selectedID) { _, id in showNotificationDetail = id != nil }
         .task { if notificationRouter.selectedID != nil { showNotificationDetail = true } }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await runtime.reconcileSources(); await runtime.reconcileNotifications(); await runtime.refresh() } }
-        }
         .sheet(isPresented: Binding(get: { !didExplainSenses }, set: { if !$0 { didExplainSenses = true } })) {
             NavigationStack {
                 ScrollView { VStack(alignment: .leading, spacing: 24) {
@@ -179,6 +175,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var versionTaps = 0
     @State private var confirmErase = false
+    @State private var eraseFailed = false
     @State private var permissionRevision = 0
     @AppStorage("weatherSenseEnabled") private var weatherEnabled = false
     var body: some View {
@@ -233,9 +230,12 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("閉じる") { dismiss() } } }
             .alert("この子の記憶をすべて消しますか", isPresented: $confirmErase) {
-                Button("消す", role: .destructive) { Task { await runtime.erase() } }
+                Button("消す", role: .destructive) { Task { eraseFailed = !(await runtime.erase()) } }
                 Button("やめる", role: .cancel) {}
             } message: { Text("記憶、標本、予約中の発話が消えます。元に戻せません。") }
+            .alert("記憶を消せませんでした", isPresented: $eraseFailed) {
+                Button("閉じる", role: .cancel) {}
+            } message: { Text("端末内の保存データを更新できませんでした。あとでもう一度お試しください。") }
         }
         .id(permissionRevision)
     }
