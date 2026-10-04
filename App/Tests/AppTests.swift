@@ -101,22 +101,25 @@ final class AppTests: XCTestCase {
     @MainActor func testDreamReconciliationReschedulesThenRecordsDeliveredSpecimen() async throws {
         let store = InMemoryStore()
         let notifications = RecordingNotifications()
-        let future = Date().addingTimeInterval(3600)
+        let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
+        let clock = FixtureClock(date: noon)
+        let future = noon.addingTimeInterval(3600)
         let utterance = Utterance(text: "海、また", createdAt: future, sourceIDs: [])
         try await store.update {
             $0.dream = DreamUtterance(utterance: utterance, scheduledAt: future)
         }
-        let runtime = CreatureRuntime(store: store, model: UnavailableModel(), notifications: notifications)
+        let runtime = CreatureRuntime(store: store, model: UnavailableModel(), notifications: notifications,
+                                      clock: { clock.date })
 
         await runtime.reconcileNotifications()
         let queued = await notifications.scheduled
         XCTAssertEqual(queued.count, 1)
-        XCTAssertEqual(queued.first?.identifier, "quiet-ai-dream")
+        XCTAssertEqual(queued.first?.identifier, "quiet-ai-dream-\(utterance.id.uuidString)")
         XCTAssertEqual(queued.first?.text, utterance.text)
         let beforeDelivery = try await store.snapshot()
         XCTAssertEqual(beforeDelivery.dream?.utterance.id, utterance.id)
 
-        try await store.update { $0.dream?.scheduledAt = Date().addingTimeInterval(-1) }
+        clock.date = future.addingTimeInterval(1)
         await runtime.reconcileNotifications()
         let delivered = try await store.snapshot()
         XCTAssertNil(delivered.dream)

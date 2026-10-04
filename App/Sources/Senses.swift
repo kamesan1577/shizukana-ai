@@ -6,6 +6,7 @@ import EventKit
 import Photos
 import Vision
 import WeatherKit
+import UIKit
 
 struct TimeSense: SenseSource {
     let kind: SenseKind = .time
@@ -133,7 +134,26 @@ final class PhotoSense: SenseSource {
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         return status == .authorized || status == .limited
     }
-    func observe(at date: Date) async -> [SenseObservation] { [] }
+    func observe(at date: Date) async -> [SenseObservation] {
+        guard hasAccess, !Task.isCancelled else { return [] }
+        let results = PHAsset.fetchAssets(with: .image, options: Self.recentFetchOptions(at: date))
+        var observations: [SenseObservation] = []
+        for index in 0..<results.count {
+            guard !Task.isCancelled, hasAccess else { break }
+            if let observation = await classify(results.object(at: index), prenatal: false) {
+                observations.append(observation)
+            }
+        }
+        return observations
+    }
+    static func recentFetchOptions(at date: Date) -> PHFetchOptions {
+        let options = PHFetchOptions()
+        options.predicate = NSPredicate(format: "creationDate >= %@ AND creationDate <= %@",
+            date.addingTimeInterval(-72 * 3600) as NSDate, date as NSDate)
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        options.fetchLimit = 4
+        return options
+    }
     func selectAssets(at date: Date) -> [String] {
         guard hasAccess else { return [] }
         let results = PHAsset.fetchAssets(with: .image, options: nil)
@@ -150,28 +170,41 @@ final class PhotoSense: SenseSource {
         guard hasAccess else { return [] }
         var observations: [SenseObservation] = []
         for id in selection where !processed.contains(id) {
-            if Task.isCancelled { break }
+            if Task.isCancelled || !hasAccess { break }
             let results = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil)
-            guard let asset = results.firstObject, let data = await imageData(for: asset) else { continue }
-            let tags = await Task.detached(priority: .utility) { () -> [String] in
-                let request = VNClassifyImageRequest()
-                let handler = VNImageRequestHandler(data: data)
-                guard (try? handler.perform([request])) != nil else { return [] }
-                return Array((request.results ?? []).filter { $0.confidence > 0.15 }.prefix(3).map(\.identifier))
-            }.value
-            let coarse = Array((tags + ["写真", "昔", "景色"]).prefix(3))
-            observations.append(SenseObservation(source: SourceRef(.photo, id), observedAt: asset.creationDate ?? Date(),
-                                            text: "昔の写真に\(coarse[0])", tags: coarse))
+            guard let asset = results.firstObject,
+                  let observation = await classify(asset, prenatal: true) else { continue }
+            observations.append(observation)
         }
         return observations
     }
-    private func imageData(for asset: PHAsset) async -> Data? {
+    private func classify(_ asset: PHAsset, prenatal: Bool) async -> SenseObservation? {
+        guard !Task.isCancelled, hasAccess, let capturedAt = asset.creationDate,
+              let data = await thumbnailData(for: asset), !Task.isCancelled, hasAccess else { return nil }
+        let tags = await Task.detached(priority: .utility) { () -> [String] in
+            let request = VNClassifyImageRequest()
+            let handler = VNImageRequestHandler(data: data)
+            guard (try? handler.perform([request])) != nil else { return [] }
+            return Array((request.results ?? []).filter { $0.confidence > 0.15 }.prefix(3).map(\.identifier))
+        }.value
+        guard !Task.isCancelled, hasAccess,
+              PHAsset.fetchAssets(withLocalIdentifiers: [asset.localIdentifier], options: nil).firstObject != nil else { return nil }
+        let coarse = Array((tags + ["写真", prenatal ? "昔" : "景色", "気配"]).prefix(3))
+        let text = prenatal ? "昔の写真に\(coarse[0])" : "写真に\(coarse[0])"
+        return SenseObservation(source: SourceRef(.photo, asset.localIdentifier), observedAt: capturedAt,
+                                text: text, tags: coarse)
+    }
+    private func thumbnailData(for asset: PHAsset) async -> Data? {
         await withCheckedContinuation { continuation in
             let options = PHImageRequestOptions()
             options.isNetworkAccessAllowed = true // PhotoKit-managed iCloud retrieval.
-            options.deliveryMode = .fastFormat
-            PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { data, _, _, _ in
-                continuation.resume(returning: data)
+            options.deliveryMode = .highQualityFormat
+            options.resizeMode = .exact
+            // Never decode a full-resolution original merely to extract coarse labels.
+            PHImageManager.default().requestImage(for: asset, targetSize: CGSize(width: 512, height: 512),
+                                                  contentMode: .aspectFit, options: options) { image, info in
+                guard !(info?[PHImageResultIsDegradedKey] as? Bool ?? false) else { return }
+                continuation.resume(returning: image?.jpegData(compressionQuality: 0.8))
             }
         }
     }
